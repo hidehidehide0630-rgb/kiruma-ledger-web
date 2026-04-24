@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id             Int            @id @default(autoincrement())
+  name           String         @unique
+  type           String
+  code           String?
+  businessRatio  BusinessRatio?
+  journalEntries JournalEntry[]
+  wallets        Wallet[]
+}
+
+model Transaction {
+  id                Int                @id @default(autoincrement())
+  date              DateTime
+  description       String
+  receiptImagePath  String?
+  isHousehold       Boolean            @default(false)
+  isDeleted         Boolean            @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  householdSpending HouseholdSpending?
+  journalEntries    JournalEntry[]
+
+  @@index([date])
+}
+
+model JournalEntry {
+  id            Int         @id @default(autoincrement())
+  transactionId Int
+  accountId     Int
+  entryType     String
+  amount        Int
+  tag           String?
+  account       Account     @relation(fields: [accountId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId])
+  @@index([accountId])
+}
+
+model Wallet {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  accountId Int
+  account   Account @relation(fields: [accountId], references: [id])
+}
+
+model BusinessRatio {
+  id        Int     @id @default(autoincrement())
+  accountId Int     @unique
+  ratio     Int
+  account   Account @relation(fields: [accountId], references: [id])
+}
+
+model FixedAsset {
+  id            Int      @id @default(autoincrement())
+  name          String
+  purchaseDate  DateTime
+  purchasePrice Int
+  usefulLife    Int
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Salary {
+  id                Int      @id @default(autoincrement())
+  date              DateTime
+  amount            Int
+  socialInsurance   Int
+  withholdingTax    Int
+  isYearEndAdjusted Boolean  @default(false)
+  description       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model YearlySalarySummary {
+  year                 Int      @id @default(autoincrement())
+  totalAmount          Int
+  totalSocialInsurance Int
+  totalWithholdingTax  Int
+  isConfirmed          Boolean  @default(false)
+  updatedAt            DateTime @updatedAt
+}
+
+model YearlyTaxDeduction {
+  id                   Int      @id @default(autoincrement())
+  year                 Int      @unique
+  healthInsurance      Int      @default(0)
+  pension              Int      @default(0)
+  lifeInsuranceGeneral Int      @default(0)
+  lifeInsuranceMedical Int      @default(0)
+  lifeInsuranceKenmin  Int      @default(0)
+  earthquakeInsurance  Int      @default(0)
+  ideco                Int      @default(0)
+  updatedAt            DateTime @updatedAt
+}
+
+model AuditReview {
+  id        Int      @id @default(autoincrement())
+  startDate DateTime
+  endDate   DateTime
+  status    String
+  summary   String?
+  details   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HouseholdCategory {
+  id        Int                 @id @default(autoincrement())
+  name      String              @unique
+  icon      String?
+  parentId  Int? // 親カテゴリーID
+  parent    HouseholdCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  HouseholdCategory[] @relation("CategoryHierarchy")
+  budgets   HouseholdBudget[]
+  spendings HouseholdSpending[]
+  items     ShoppingItem[]
+}
+
+model HouseholdSpending {
+  id            Int               @id @default(autoincrement())
+  date          DateTime
+  amount        Int
+  description   String?
+  categoryId    Int
+  transactionId Int?              @unique
+  transaction   Transaction?      @relation(fields: [transactionId], references: [id])
+  category      HouseholdCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([date])
+  @@index([categoryId])
+  @@index([transactionId])
+}
+
+model HouseholdBudget {
+  id         Int               @id @default(autoincrement())
+  year       Int
+  month      Int
+  amount     Int
+  categoryId Int
+  category   HouseholdCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([year, month, categoryId])
+}
+
+model Recipe {
+  id             String     @id
+  name           String
+  ingredients    String
+  instructions   String?
+  estimatedPrice Int        @default(0)
+  isFavorite     Boolean    @default(false)
+  mealPlans      MealPlan[]
+}
+
+model ShoppingList {
+  id        Int            @id @default(autoincrement())
+  date      DateTime       @default(now())
+  name      String?
+  status    String
+  mealPlans MealPlan[]
+  items     ShoppingItem[]
+}
+
+model ShoppingItem {
+  id             Int                @id @default(autoincrement())
+  shoppingListId Int
+  name           String
+  price          Int                @default(0)
+  quantity       Int                @default(1)
+  categoryId     Int?
+  category       HouseholdCategory? @relation(fields: [categoryId], references: [id])
+  shoppingList   ShoppingList       @relation(fields: [shoppingListId], references: [id])
+
+  @@index([shoppingListId])
+}
+
+model MealPlan {
+  id             Int           @id @default(autoincrement())
+  date           DateTime
+  recipeId       String
+  shoppingListId Int?
+  shoppingList   ShoppingList? @relation(fields: [shoppingListId], references: [id])
+  recipe         Recipe        @relation(fields: [recipeId], references: [id])
+
+  @@index([recipeId])
+  @@index([shoppingListId])
+}
