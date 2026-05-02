@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { HouseholdLogic } from '@/lib/logic/household';
 
+// ビルド時のDB接続を防止し、リクエスト時に動的にレンダリング
+export const dynamic = 'force-dynamic';
+
 export default async function HouseholdPage() {
   const today = new Date();
   const year = today.getFullYear();
