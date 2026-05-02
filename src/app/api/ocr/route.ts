@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const mimeType = file.type;
 
     // Gemini 1.5 Pro または Flashモデルを使用（画像認識が得意なモデル）
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     // すべての勘定科目を取得
     const accounts = await prisma.account.findMany();
