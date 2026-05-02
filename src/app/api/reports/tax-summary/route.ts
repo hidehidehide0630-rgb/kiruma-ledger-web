@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -85,8 +87,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // 6. 源泉徴収税 (Prisma Client を使用して日付比較の確実性を担保)
-    // tag = '源泉徴収税' のもの、または 勘定名が '事業主貸' 且つ 摘要に '源泉' を含むものを合算
+    // 6. 源泉徴収税
     const withholdingTaxJournalEntries = await prisma.journalEntry.findMany({
       where: {
         transaction: {
@@ -105,31 +106,32 @@ export async function GET(request: Request) {
       }
     });
     const totalWithholdingTax = withholdingTaxJournalEntries.reduce((sum, e) => sum + (e.amount || 0), 0);
-    console.log(`Debug: Withholding entries found: ${withholdingTaxJournalEntries.length}, Total: ${totalWithholdingTax}`);
 
-    // 7. 給与所得の集計 (Raw SQL)
+    // 7. 給与所得の集計 (Prisma Client を使用)
     let salaryIncome = 0;
     let salarySocialInsurance = 0;
     let salaryWithholdingTax = 0;
     let isConfirmedMode = false;
 
-    // YearlySummary
-    const summaries: any[] = await prisma.$queryRaw`
-      SELECT * FROM YearlySalarySummary WHERE year = ${year}
-    `;
-    const yearlySummary = summaries[0];
+    // YearlySummary の取得 (Prisma Client)
+    const yearlySummary = await prisma.yearlySalarySummary.findFirst({
+      where: { year: year }
+    });
 
-    if (yearlySummary && (yearlySummary.isConfirmed === 1 || yearlySummary.isConfirmed === true)) {
+    if (yearlySummary && yearlySummary.isConfirmed) {
       salaryIncome = Number(yearlySummary.totalAmount) || 0;
       salarySocialInsurance = Number(yearlySummary.totalSocialInsurance) || 0;
       salaryWithholdingTax = Number(yearlySummary.totalWithholdingTax) || 0;
       isConfirmedMode = true;
     } else {
-      const startIso = startDate.toISOString();
-      const endIso = endDate.toISOString();
-      const salaries: any[] = await prisma.$queryRaw`
-        SELECT * FROM Salary WHERE date >= ${startIso} AND date <= ${endIso}
-      `;
+      const salaries = await prisma.salary.findMany({
+        where: {
+          date: {
+            gte: startDate,
+            lte: endDate
+          }
+        }
+      });
       salaryIncome = salaries.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
       salarySocialInsurance = salaries.reduce((sum, s) => sum + (Number(s.socialInsurance) || 0), 0);
       salaryWithholdingTax = salaries.reduce((sum, s) => sum + (Number(s.withholdingTax) || 0), 0);
