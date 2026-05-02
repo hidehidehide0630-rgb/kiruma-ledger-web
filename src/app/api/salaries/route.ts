@@ -1,62 +1,61 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: 全給与データの取得 (Raw SQL)
+export const dynamic = 'force-dynamic';
+
+// GET: 全給与データの取得
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const year = searchParams.get('year') || new Date().getFullYear().toString();
+    const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString());
 
-    const start = `${year}-01-01T00:00:00.000Z`;
-    const end = `${year}-12-31T23:59:59.999Z`;
+    const start = new Date(year, 0, 1);
+    const end = new Date(year, 11, 31, 23, 59, 59, 999);
 
-    const salaries: any[] = await prisma.$queryRaw`
-      SELECT * FROM Salary 
-      WHERE date >= ${start} AND date <= ${end}
-      ORDER BY date ASC
-    `;
+    const salaries = await prisma.salary.findMany({
+      where: {
+        date: {
+          gte: start,
+          lte: end
+        }
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    });
 
-    // SQLite may return 0/1 for booleans
-    const formatted = salaries.map(s => ({
-      ...s,
-      isYearEndAdjusted: s.isYearEndAdjusted === 1 || s.isYearEndAdjusted === true
-    }));
-
-    return NextResponse.json(formatted);
+    return NextResponse.json(salaries);
   } catch (error: any) {
     console.error('Error fetching salaries:', error);
     return NextResponse.json({ error: 'Failed', details: error.message }, { status: 500 });
   }
 }
 
-// POST: 給与データの登録 (Raw SQL)
+// POST: 給与データの登録
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { date, amount, socialInsurance, withholdingTax, isYearEndAdjusted, description } = body;
 
-    const dateObj = new Date(date);
-    const dateStr = dateObj.toISOString();
-    const now = new Date().toISOString();
-    const adjInt = isYearEndAdjusted ? 1 : 0;
+    const salary = await prisma.salary.create({
+      data: {
+        date: new Date(date),
+        amount: Number(amount) || 0,
+        socialInsurance: Number(socialInsurance) || 0,
+        withholdingTax: Number(withholdingTax) || 0,
+        isYearEndAdjusted: !!isYearEndAdjusted,
+        description: description || ''
+      }
+    });
 
-    const amt = Number(amount) || 0;
-    const soc = Number(socialInsurance) || 0;
-    const tax = Number(withholdingTax) || 0;
-
-    await prisma.$executeRaw`
-      INSERT INTO Salary (date, amount, socialInsurance, withholdingTax, isYearEndAdjusted, description, updatedAt, createdAt)
-      VALUES (${dateStr}, ${amt}, ${soc}, ${tax}, ${adjInt}, ${description || ''}, ${now}, ${now})
-    `;
-
-    return NextResponse.json({ success: true }, { status: 201 });
+    return NextResponse.json(salary, { status: 201 });
   } catch (error: any) {
     console.error('Error creating salary:', error);
     return NextResponse.json({ error: 'Failed', details: error.message }, { status: 500 });
   }
 }
 
-// DELETE: 給与データの削除 (Raw SQL)
+// DELETE: 給与データの削除
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -66,11 +65,9 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const idInt = parseInt(id);
-
-    await prisma.$executeRaw`
-      DELETE FROM Salary WHERE id = ${idInt}
-    `;
+    await prisma.salary.delete({
+      where: { id: parseInt(id) }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -79,7 +76,7 @@ export async function DELETE(request: Request) {
   }
 }
 
-// PUT: 給与データの更新 (Raw SQL)
+// PUT: 給与データの更新
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -89,29 +86,19 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const idInt = parseInt(id);
-    const dateObj = new Date(date);
-    const dateStr = dateObj.toISOString();
-    const now = new Date().toISOString();
-    const adjInt = isYearEndAdjusted ? 1 : 0;
+    const salary = await prisma.salary.update({
+      where: { id: parseInt(id) },
+      data: {
+        date: new Date(date),
+        amount: Number(amount) || 0,
+        socialInsurance: Number(socialInsurance) || 0,
+        withholdingTax: Number(withholdingTax) || 0,
+        isYearEndAdjusted: !!isYearEndAdjusted,
+        description: description || ''
+      }
+    });
 
-    const amt = Number(amount) || 0;
-    const soc = Number(socialInsurance) || 0;
-    const tax = Number(withholdingTax) || 0;
-
-    await prisma.$executeRaw`
-      UPDATE Salary 
-      SET date = ${dateStr}, 
-          amount = ${amt}, 
-          socialInsurance = ${soc}, 
-          withholdingTax = ${tax}, 
-          isYearEndAdjusted = ${adjInt}, 
-          description = ${description || ''}, 
-          updatedAt = ${now}
-      WHERE id = ${idInt}
-    `;
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json(salary);
   } catch (error: any) {
     console.error('Error updating salary:', error);
     return NextResponse.json({ error: 'Failed', details: error.message }, { status: 500 });
