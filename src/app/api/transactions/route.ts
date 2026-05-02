@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // GET: 取引一覧取得（論理削除を除外、検索対応）
 export async function GET(request: Request) {
   try {
