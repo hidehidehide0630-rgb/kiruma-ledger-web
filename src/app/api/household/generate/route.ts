@@ -28,8 +28,7 @@ export async function POST(req: NextRequest) {
         await prisma.mealPlan.create({
             data: {
                 date: item.date,
-                recipeId: item.recipe.id,
-                isLocked: false
+                recipeId: item.recipe.id
             }
         });
     }
