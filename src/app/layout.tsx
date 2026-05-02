@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import MobileNavWrapper from '@/components/MobileNavWrapper';
+import Navigation from '@/components/Navigation';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,9 +18,9 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${inter.className} bg-gray-50 text-gray-900`}>
-        <MobileNavWrapper>
+        <Navigation>
           {children}
-        </MobileNavWrapper>
+        </Navigation>
       </body>
     </html>
   );
