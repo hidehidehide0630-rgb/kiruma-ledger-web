@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     // node scripts/audit_engine.js 2026-03-01 2026-03-31
     const command = `node "${scriptPath}" ${startDate} ${endDate}`;
     
-    return new Promise((resolve) => {
+    return new Promise<NextResponse>((resolve) => {
       exec(command, (error, stdout, stderr) => {
         if (error) {
           console.error(`exec error: ${error}`);
