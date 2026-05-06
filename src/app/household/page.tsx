@@ -16,13 +16,23 @@ export default async function HouseholdPage() {
     where: { year, month },
     include: { category: true }
   });
-  const totalBudgetAmount = allBudgets.reduce((sum, b) => sum + b.amount, 0);
+  const totalBudgetAmount = allBudgets
+    .filter(b => b.category.parentId === null)
+    .reduce((sum, b) => sum + b.amount, 0);
 
   // 2. 今月の総支出の取得（カテゴリ別集計を含む）
-  const monthStart = new Date(year, month - 1, 1);
+  // 日本時間(JST)での月初のUTC日時を計算
+  const monthStart = new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00+09:00`);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const monthEnd = new Date(`${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+09:00`);
+
   const spendings = await prisma.householdSpending.findMany({
     where: {
-      date: { gte: monthStart }
+      date: { 
+        gte: monthStart,
+        lt: monthEnd
+      }
     },
     include: { category: true }
   });
@@ -40,22 +50,22 @@ export default async function HouseholdPage() {
       let amount = 0;
       let spent = 0;
       
+      // 親カテゴリー自身の数値を加算
+      const parentBudgets = allBudgets.filter(b => b.categoryId === parent.id);
+      amount += parentBudgets.reduce((sum, b) => sum + b.amount, 0);
+      spent += spendings
+        .filter(s => s.categoryId === parent.id)
+        .reduce((sum, s) => sum + s.amount, 0);
+
       if (isGroup) {
         // 子カテゴリーの合計を算出
         children.forEach(child => {
-          const b = allBudgets.find(b => b.categoryId === child.id);
-          amount += b ? b.amount : 0;
+          const childBudgets = allBudgets.filter(b => b.categoryId === child.id);
+          amount += childBudgets.reduce((sum, b) => sum + b.amount, 0);
           spent += spendings
             .filter(s => s.categoryId === child.id)
             .reduce((sum, s) => sum + s.amount, 0);
         });
-      } else {
-        // 単体項目の場合
-        const b = allBudgets.find(b => b.categoryId === parent.id);
-        amount = b ? b.amount : 0;
-        spent = spendings
-          .filter(s => s.categoryId === parent.id)
-          .reduce((sum, s) => sum + s.amount, 0);
       }
         
       const percent = Math.min(100, amount > 0 ? (spent / amount) * 100 : (spent > 0 ? 100 : 0));
@@ -71,6 +81,10 @@ export default async function HouseholdPage() {
       else if (parent.name === '雑費') icon = '💠';
       else if (parent.name === '食費') icon = '🛒';
       else if (parent.name === '日用品') icon = '🧴';
+      else if (parent.name.includes('住居')) icon = '🏠';
+      else if (parent.name.includes('通信')) icon = '📱';
+      else if (parent.name.includes('光熱')) icon = '⚡';
+      else if (parent.name.includes('医療')) icon = '🏥';
 
       return {
         categoryId: parent.id,
@@ -83,8 +97,8 @@ export default async function HouseholdPage() {
         icon,
         isGroup,
         children: children.map(child => {
-           const b = allBudgets.find(b => b.categoryId === child.id);
-           const cAmount = b ? b.amount : 0;
+           const childBudgets = allBudgets.filter(b => b.categoryId === child.id);
+           const cAmount = childBudgets.reduce((sum, b) => sum + b.amount, 0);
            const cSpent = spendings
             .filter(s => s.categoryId === child.id)
             .reduce((sum, s) => sum + s.amount, 0);
@@ -99,6 +113,7 @@ export default async function HouseholdPage() {
       };
     })
     .filter(stat => stat.amount > 0 || stat.spent > 0);
+
 
   // 4. 今週の献立取得
   const weekEnd = new Date();
@@ -180,9 +195,13 @@ export default async function HouseholdPage() {
                 <div className="group">
                   <div className="flex justify-between items-end mb-1 px-1">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-inner border ${stat.isGroup ? 'bg-indigo-50 border-indigo-100' : 'bg-gray-50 border-gray-100'}`}>
+                      <Link 
+                        href={`/household/spending?year=${year}&month=${month}&categoryId=${stat.categoryId}`}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-inner border hover:scale-110 transition-transform ${stat.isGroup ? 'bg-indigo-50 border-indigo-100' : 'bg-gray-50 border-gray-100'}`}
+                        title="このカテゴリの詳細を表示"
+                      >
                         {stat.icon}
-                      </div>
+                      </Link>
                       <span className="text-sm font-black text-gray-700">
                         {stat.name}
                         {stat.isGroup && <span className="ml-2 text-[8px] font-black bg-indigo-600 text-white px-1.5 py-0.5 rounded italic uppercase">Group</span>}
@@ -300,7 +319,7 @@ export default async function HouseholdPage() {
             <h2 className="text-lg font-bold text-gray-800 flex items-center">
               <span className="mr-2">💸</span> 最近の支出
             </h2>
-            <Link href="/household/spending" className="text-sm text-gray-500 hover:underline">履歴詳細</Link>
+            <Link href={`/household/spending?year=${year}&month=${month}`} className="text-sm text-gray-500 hover:underline">履歴詳細</Link>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <table className="min-w-full divide-y divide-gray-100">

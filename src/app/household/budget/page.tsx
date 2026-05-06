@@ -101,7 +101,9 @@ export default function HouseholdBudgetPage() {
     }
   };
 
-  const totalBudget = Object.values(budgets).reduce((sum, val) => sum + val, 0);
+  const totalBudget = categories
+    .filter(c => !c.parentId)
+    .reduce((sum, c) => sum + (budgets[c.id] || 0), 0);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-4">
