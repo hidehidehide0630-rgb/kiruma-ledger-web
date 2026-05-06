@@ -133,9 +133,9 @@ export default async function HouseholdPage() {
     <div className="space-y-10 animate-in fade-in duration-1000">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-4xl font-black text-gray-900 tracking-tighter">Household & Menu</h1>
+          <h1 className="text-4xl font-black text-gray-900 tracking-tighter">Household & Spending</h1>
           <p className="text-gray-400 font-bold uppercase tracking-widest text-xs mt-1 italic">
-            🏡 家計・献立マネージャー <span className="mx-2">|</span> {year}年{month}月の状況
+            🏡 家計・支出管理 <span className="mx-2">|</span> {year}年{month}月の状況
           </p>
         </div>
         <div className="flex gap-3">

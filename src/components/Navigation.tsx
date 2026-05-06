@@ -17,8 +17,12 @@ export default function Navigation({ children }: { children: React.ReactNode }) 
       { href: "/reports", label: "帳票 (PL/BS)", icon: "📈" },
     ]},
     { section: 'Household', items: [
-      { href: "/household", label: "家計・献立管理", icon: "🏡" },
+      { href: "/household", label: "家計・支出管理", icon: "🏡" },
       { href: "/household/budget", label: "予算設定", icon: "⚖️" },
+    ]},
+    { section: 'Health & Meals', items: [
+      { href: "/household/meals", label: "献立・食事管理", icon: "🍳" },
+      { href: "/household/setup", label: "AI献立生成", icon: "🤖" },
     ]},
     { section: 'Tools', items: [
       { href: "/reports/tax-navigation", label: "確定申告ナビ", icon: "🎯" },
