@@ -337,5 +337,3 @@ export default async function HouseholdPage() {
     </div>
   );
 }
-  );
-}
