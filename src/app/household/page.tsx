@@ -93,8 +93,23 @@ export default async function HouseholdPage() {
         children: children.map(child => {
           const cBudget = allBudgets.filter(b => b.categoryId === child.id).reduce((sum, b) => sum + b.amount, 0);
           const cSpent = spendings.filter(s => s.categoryId === child.id).reduce((sum, s) => sum + s.amount, 0);
-          return { id: child.id, name: child.name, budget: cBudget, spent: cSpent };
-        })
+          
+          const cIdealSpent = cBudget * elapsedRate;
+          const cSpentRate = cBudget > 0 ? (cSpent / cBudget) * 100 : 0;
+          let cStatus: 'safe' | 'warning' | 'danger' = 'safe';
+          if (cSpent > cBudget) cStatus = 'danger';
+          else if (cSpent > cIdealSpent * 1.1) cStatus = 'warning';
+
+          return { 
+            id: child.id, 
+            name: child.name, 
+            budget: cBudget, 
+            spent: cSpent,
+            idealSpent: cIdealSpent,
+            spentRate: cSpentRate,
+            status: cStatus
+          };
+        }).filter(c => c.budget > 0 || c.spent > 0)
       };
     })
     .filter(s => s.budgetAmount > 0 || s.spentAmount > 0);
@@ -207,6 +222,38 @@ export default async function HouseholdPage() {
                         : `理想値まであと ¥${Math.floor(stat.idealSpent - stat.spentAmount).toLocaleString()} 余裕`}
                     </span>
                   </div>
+
+                  {/* Subcategories (if any) */}
+                  {stat.children.length > 0 && (
+                    <div className="pl-4 mt-3 space-y-3 border-l-2 border-gray-100">
+                      {stat.children.map(child => (
+                        <div key={child.id} className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-gray-500">{child.name}</span>
+                            <span className="text-[11px] font-black text-gray-700 italic">
+                              ¥{child.spent.toLocaleString()} <span className="text-[9px] font-normal text-gray-400">/ ¥{child.budget.toLocaleString()}</span>
+                            </span>
+                          </div>
+                          <div className="relative pt-1">
+                            <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100">
+                              <div 
+                                style={{ width: `${Math.min(100, child.spentRate)}%` }}
+                                className={`h-full transition-all duration-1000 ${
+                                  child.status === 'danger' ? 'bg-rose-400' : 
+                                  child.status === 'warning' ? 'bg-amber-300' : 'bg-indigo-400'
+                                }`}
+                              ></div>
+                            </div>
+                            {/* Subcategory Ideal Marker */}
+                            <div 
+                              className="absolute top-0 w-0.5 h-3.5 bg-rose-400 rounded-full z-20"
+                              style={{ left: `${stat.idealRatePercent}%`, transform: 'translateX(-50%)' }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
