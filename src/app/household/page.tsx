@@ -191,7 +191,20 @@ export default async function HouseholdPage() {
                   </div>
 
                   {/* Meter with Ideal Marker */}
-                  <div className="relative pt-2">
+                  <div className="relative pt-2 group cursor-pointer">
+                    {/* Hover Tooltip */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-3 py-2 bg-gray-900 text-white text-[10px] font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-gray-400">現在: ¥{stat.spentAmount.toLocaleString()}</span>
+                        <span className={stat.spentAmount > stat.idealSpent ? 'text-rose-400' : 'text-emerald-400'}>
+                          {stat.spentAmount > stat.idealSpent 
+                            ? `超過: +¥${Math.floor(stat.spentAmount - stat.idealSpent).toLocaleString()}` 
+                            : `余裕: -¥${Math.floor(stat.idealSpent - stat.spentAmount).toLocaleString()}`}
+                        </span>
+                      </div>
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                    </div>
+
                     <div className="h-3 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100">
                       <div 
                         style={{ width: `${Math.min(100, stat.spentRate)}%` }}
@@ -205,7 +218,6 @@ export default async function HouseholdPage() {
                     <div 
                       className="absolute top-0 w-1 h-6 bg-rose-500 rounded-full shadow-lg transition-all duration-1000 z-20"
                       style={{ left: `${stat.idealRatePercent}%`, transform: 'translateX(-50%)' }}
-                      title={`本日時点の理想値: ¥${Math.floor(stat.idealSpent).toLocaleString()}`}
                     >
                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] font-black text-rose-500 whitespace-nowrap">IDEAL</div>
                     </div>
@@ -234,7 +246,20 @@ export default async function HouseholdPage() {
                               ¥{child.spent.toLocaleString()} <span className="text-[9px] font-normal text-gray-400">/ ¥{child.budget.toLocaleString()}</span>
                             </span>
                           </div>
-                          <div className="relative pt-1">
+                          <div className="relative pt-1 group cursor-pointer">
+                            {/* Subcategory Hover Tooltip */}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1.5 bg-gray-800 text-white text-[9px] font-bold rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                              <div className="flex flex-col">
+                                <span className="text-gray-300">現在: ¥{child.spent.toLocaleString()}</span>
+                                <span className={child.spent > child.idealSpent ? 'text-rose-400' : 'text-emerald-400'}>
+                                  {child.spent > child.idealSpent 
+                                    ? `超過: +¥${Math.floor(child.spent - child.idealSpent).toLocaleString()}` 
+                                    : `余裕: -¥${Math.floor(child.idealSpent - child.spent).toLocaleString()}`}
+                                </span>
+                              </div>
+                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+
                             <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100">
                               <div 
                                 style={{ width: `${Math.min(100, child.spentRate)}%` }}
