@@ -195,7 +195,7 @@ export default async function HouseholdPage() {
                     {/* Hover Tooltip */}
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-3 py-2 bg-gray-900 text-white text-[10px] font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                       <div className="flex flex-col gap-1">
-                        <span className="text-gray-400">現在: ¥{stat.spentAmount.toLocaleString()}</span>
+                        <span className="text-gray-400">理想値: ¥{Math.floor(stat.idealSpent).toLocaleString()}</span>
                         <span className={stat.spentAmount > stat.idealSpent ? 'text-rose-400' : 'text-emerald-400'}>
                           {stat.spentAmount > stat.idealSpent 
                             ? `超過: +¥${Math.floor(stat.spentAmount - stat.idealSpent).toLocaleString()}` 
@@ -250,7 +250,7 @@ export default async function HouseholdPage() {
                             {/* Subcategory Hover Tooltip */}
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1.5 bg-gray-800 text-white text-[9px] font-bold rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                               <div className="flex flex-col">
-                                <span className="text-gray-300">現在: ¥{child.spent.toLocaleString()}</span>
+                                <span className="text-gray-300">理想値: ¥{Math.floor(child.idealSpent).toLocaleString()}</span>
                                 <span className={child.spent > child.idealSpent ? 'text-rose-400' : 'text-emerald-400'}>
                                   {child.spent > child.idealSpent 
                                     ? `超過: +¥${Math.floor(child.spent - child.idealSpent).toLocaleString()}` 
