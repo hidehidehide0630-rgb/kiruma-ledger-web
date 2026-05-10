@@ -114,7 +114,9 @@ export default async function MealManagementPage() {
                 <div key={idx} className="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex flex-col gap-1 hover:border-pink-300 transition-colors min-w-[120px]">
                   <div className="flex justify-between items-center gap-4">
                     <span className="font-bold text-gray-700 text-sm">{item.name}</span>
-                    <span className="text-[11px] font-black text-pink-600 italic">¥{item.totalPrice.toLocaleString()}</span>
+                    <span className="text-[11px] font-black text-pink-600 italic">
+                      {item.totalPrice > 0 ? `¥${item.totalPrice.toLocaleString()}` : '価格未設定'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] font-black text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">{item.quantity}</span>
