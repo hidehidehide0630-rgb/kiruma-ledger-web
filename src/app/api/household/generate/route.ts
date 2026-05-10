@@ -25,6 +25,18 @@ export async function POST(req: NextRequest) {
     // 3. データベースへの保存
     // トランザクションで保存
     for (const item of generatedMenu) {
+        // 先に生成されたレシピをDBに保存する
+        await prisma.recipe.create({
+            data: {
+                id: item.recipe.id,
+                name: item.recipe.name,
+                estimatedPrice: item.recipe.estimatedPrice,
+                ingredients: item.recipe.ingredients,
+                instructions: item.recipe.instructions,
+                isFavorite: false
+            }
+        });
+
         await prisma.mealPlan.create({
             data: {
                 date: item.date,

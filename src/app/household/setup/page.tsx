@@ -113,42 +113,12 @@ export default function HouseholdSetupPage() {
       )}
 
       <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-xl space-y-6">
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">生成日数</label>
-          <div className="flex gap-2">
-            {[3, 7, 10, 14].map(d => (
-              <button
-                key={d}
-                onClick={() => setDays(d)}
-                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all ${
-                  days === d 
-                  ? 'border-pink-600 bg-pink-50 text-pink-700 font-bold' 
-                  : 'border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200'
-                }`}
-              >
-                {d}日間
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="flex justify-between items-end mb-2">
-            <label className="block text-sm font-bold text-gray-700">この期間の総予算 (円)</label>
-            {recs.length > 0 && (
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-                推奨合計: ¥{(totalRecommendedDaily * days).toLocaleString()}
-              </span>
-            )}
-          </div>
-          <input
-            type="number"
-            value={budget}
-            onChange={(e) => setBudget(Number(e.target.value))}
-            className="w-full px-4 py-4 rounded-xl border-2 border-gray-100 focus:border-pink-500 focus:ring-0 text-2xl font-mono transition-all outline-none"
-            placeholder="例: 15000"
-          />
-          <p className="mt-2 text-xs text-gray-400">※朝食・昼食、および夕食の合算予算です。</p>
+        <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
+          <p className="text-sm font-bold text-gray-500 mb-2">AIが自動計算した今週（{days}日間）の推奨予算</p>
+          <p className="text-4xl font-black text-emerald-600 tracking-tighter italic">
+            ¥{budget.toLocaleString()}
+          </p>
+          <p className="mt-3 text-xs text-gray-400">※過去の支出ペースと推奨額から自動算出されています。一切の入力は不要です。</p>
         </div>
 
         <div className="pt-4">
