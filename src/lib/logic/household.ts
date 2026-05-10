@@ -1,52 +1,29 @@
-import { prisma } from '../prisma';
-
-export interface RecipeCandidate {
-  id: string;
-  name: string;
-  estimatedPrice: number;
-  ingredients: string;
-}
-
+import { PrismaClient } from '@prisma/client';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
-// データベースを使わず、毎回新しいUUIDを生成するためのヘルパー
-const generateId = () => Math.random().toString(36).substring(2, 15);
+const prisma = new PrismaClient();
+
+// ID生成ユーティリティ
+const generateId = () => Math.random().toString(36).substring(2, 11);
 
 export const HouseholdLogic = {
   /**
-   * 1回あたりの買い物予算を計算
+   * 献立と買い物リストを生成（プロの購買マネージャーロジック）
    */
-  calculateTripBudget(monthlyBudget: number, tripsPerMonth: number, reserveRate = 0.05) {
-    const effectiveBudget = monthlyBudget * (1 - reserveRate);
-    return Math.floor(effectiveBudget / tripsPerMonth);
-  },
+  async generateMenu(days: number, targetBudget: number, startDate: string) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
-  /**
-   * ハイブリッド献立生成（LLMを使用した一気通貫の販売単位・使い切り生成）
-   */
-  async generateMenu(params: {
-    startDate: Date;
-    days: number;
-    tripBudget: number;
-    vitalityMode?: boolean;
-    budgetBuffer?: number;
-  }) {
-    const { startDate, days, tripBudget, vitalityMode } = params;
-    
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-3-flash-preview',
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-      ],
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // モデルは最新の gemini-3-flash-preview を使用
+    const model = genAI.getGenerativeModel({
+      model: "gemini-3-flash-preview",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
           type: SchemaType.OBJECT,
           properties: {
+            procurementStrategy: { type: SchemaType.STRING },
             dailyPlans: {
               type: SchemaType.ARRAY,
               items: {
@@ -76,12 +53,13 @@ export const HouseholdLogic = {
                     items: {
                       type: SchemaType.OBJECT,
                       properties: {
+                        name: { type: SchemaType.STRING },
                         purchaseUnit: { type: SchemaType.STRING },
                         usageAmount: { type: SchemaType.STRING },
                         unitPrice: { type: SchemaType.INTEGER },
                         isFirstPurchase: { type: SchemaType.BOOLEAN }
                       },
-                      required: ["purchaseUnit", "usageAmount", "unitPrice", "isFirstPurchase"]
+                      required: ["name", "purchaseUnit", "usageAmount", "unitPrice", "isFirstPurchase"]
                     }
                   }
                 },
@@ -89,66 +67,96 @@ export const HouseholdLogic = {
               }
             }
           },
-          required: ["dailyPlans"]
+          required: ["dailyPlans", "procurementStrategy"]
         }
       }
     });
+
+    const dailyBudgetGoal = Math.floor(targetBudget / days);
 
     // 現在の在庫を取得
     const inventory = await prisma.inventory.findMany();
     const isInventoryEmpty = inventory.length === 0;
     const inventoryList = isInventoryEmpty 
-      ? "なし（現在冷蔵庫は空です）"
-      : inventory.map(i => `${i.name}: ${i.quantity}${i.unit || ''}`).join(', ');
-
-    // ユーザーの要望に基づき、朝食・昼食の予算のみを考慮。
-    // 週3000円程度という目標を達成可能なことを強調する。
-    const dailyBudgetGoal = 428; // 3000 / 7
-    const targetBudget = dailyBudgetGoal * days;
+      ? "なし（家には何もありません）"
+      : inventory.map(i => `${i.name}: ${i.quantity}${i.unit}`).join(", ");
 
     const prompt = `
-あなたはKIRUMA COMPANYの専属シェフ兼、プロの精密な購買マネージャーです。
-${days}日分の【朝食・昼食】の献立と買い物リストを作成してください。夕食は一切考慮しないでください。
+あなたはKIRUMA COMPANYの専属エグゼクティブ・シェフ兼、プロの購買マネージャーです。
+${days}日間の「朝食・昼食」の献立と、スーパーでの「買い物リスト」を作成してください。夕食は計算外です。
 
-【今回の最優先テーマ】
-- 勃起力の向上・改善（亜鉛、アルギニン、シトルリン、ビタミンEを重視）
-- 胸筋・腹筋の強化（高タンパク、低脂質）
-- 体形の絞り（低GI食品、適正カロリー）
-- **レシピの多様性**: 毎日同じ食材（例：毎日鶏むね肉とオートミールのみ）にならないよう、肉、魚、大豆製品などを日替わりでローテーションし、調理法や味付けもバリエーション豊かにしてください。
+### 【重要】プロの購買マネージャーとしての思考ルール（最優先）
+1. **販売単位での購入（パック買い）の徹底**:
+   - スーパーで「生卵1個」や「鶏肉50g」は買えません。
+   - 必ず「卵1パック(10個)」「鶏むね肉1枚(約300g)」「カット野菜1袋」などの現実的な販売単位で購入計画を立ててください。
+   - 買い物リストに「生卵1個」のような非現実的な単位が出現することは許されません。
 
-【献立生成の思考プロセス（※この順序で思考すること）】
-1. **メインディッシュ（主菜）の選定**: 上記テーマを達成し、かつ${days}日間で合計${targetBudget}円程度に収まる主菜を先にすべて決めます。
-2. **在庫の照合**: 決めた主菜に必要な食材を、以下の在庫リストと照合します。
-3. **副菜・汁物（任意/使い切り）**: 主菜の材料が余る場合、または予算に余裕がある場合にのみ、余った食材を使い切るための副菜や汁物を追加してください。主菜の材料が余らない場合は副菜や汁物は「なし」で構いません（マストではありません）。
-4. **買い物リストの確定**: 在庫にないものはすべて「新規購入」としてリストアップします。
+2. **「使い切り・在庫転用」のロジック**:
+   - 購入した食材（例：卵10個）は、その日に全部使う必要はありません。
+   - 1日目に「新規購入(isFirstPurchase: true)」として全額（例：250円）を計上。
+   - 2日目以降にその残りを使う場合は「在庫利用(isFirstPurchase: false)」とし、金額は0円で計上してください。
+   - 買い物リストの集約：同じ日に同じ材料を複数回買うような重複（「卵1個」と「卵2個」が別々に並ぶ等）は、マネージャーとして失格です。1つの「1パック」にまとめてください。
 
-【食材と購入ルール（捏造厳禁）】
-- 在庫リスト: ${inventoryList}
-${isInventoryEmpty ? '- **重要**: 現在の在庫は「なし（空）」です。いかなる食材も「在庫利用」として扱うことはできません。すべての食材は新規購入（isFirstPurchase: true）としてください。' : '- 在庫リストにない食材を「在庫利用」として扱うことは、データの整合性を破壊する「捏造」であり、絶対に許されません。在庫にないものは必ず「isFirstPurchase: true」とし、その日の合計金額に計上してください。'}
-- 1週間で約3000円（1日あたり約${dailyBudgetGoal}円）という目標は、旬の野菜や特売になりやすい食材を活用すれば十分に達成可能です。プロの計算能力を見せてください。
+3. **献立作成の思考プロセス**:
+   - 手順1：まず「主菜」を決める。
+   - 手順2：その主菜で発生した「余った食材」を特定する。
+   - 手順3：余った食材を「翌日の主菜」または「当日の副菜・汁物」に回して使い切る。
+   - 副菜と汁物は、食材を使い切るための「手段」であり、必須ではありません。材料がなければ「なし」で構いません。
 
-【食材と単位（超重要）】
-- 単位: 2kgなどの巨大な業務用単位は絶対に避け、「鶏むね肉 1パック(約300g)」「卵 1パック(10個)」など、一般的なスーパーマーケットで売られている現実的な単位で購入計画を立ててください。
+4. **栄養とターゲット**:
+   - 目的：勃起力向上（亜鉛・ビタミンE）、筋肉強化（高タンパク）、体形の絞り（低GI）。
+   - 食材：鶏むね肉、オートミール、卵、ブロッコリー、ナッツ、魚介類などを活用。
+   - 毎日同じメニュー（鶏むね肉とオートミールのみ等）はセンスがありません。バリエーションを持たせてください。
 
-JSON形式で出力してください。
+5. **予算目標**:
+   - 1日平均${dailyBudgetGoal}円（週合計${targetBudget}円）を厳守してください。
+   - 数百円程度のオーバーは許容しますが、可能な限り3,000円前後に収めるプロの計算を見せてください。
+
+### 【入力データ】
+- 現在の在庫リスト: ${inventoryList}
+${isInventoryEmpty ? '※現在は在庫がゼロです。すべて新規購入から始めてください。' : '※在庫にあるものは優先的に使い、無駄な買い足しを避けてください。'}
+
+### 【出力フォーマット】
+以下のJSON構造で出力してください。
+
+{
+  "procurementStrategy": "どのように食材を数日間で使い回し、重複を避けたかの戦略説明",
+  "dailyPlans": [
+    {
+      "menu": { "main": "主菜名", "side": "副菜名（なければ「なし」）", "soup": "汁物名（なければ「なし」）" },
+      "instructions": { "main": "主菜の作り方", "side": "副菜の作り方", "soup": "汁物の作り方" },
+      "dailyEstimatedPrice": その日の「新規購入(isFirstPurchase: true)」の合計金額,
+      "ingredients": [
+        {
+          "name": "食材名（例：卵）",
+          "purchaseUnit": "販売単位（例：1パック(10個)）",
+          "usageAmount": "その日の使用量（例：2個）",
+          "unitPrice": 販売単位の価格（例：250）",
+          "isFirstPurchase": この食材をこの日に「新しく買う」ならtrue、以前買った在庫を使うならfalse
+        }
+      ]
+    }
+  ]
+}
 `;
 
     const result = await model.generateContent(prompt);
     let responseText = result.response.text();
     
-    responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    // JSON部分のみを抽出
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AIから有効なJSONが返されませんでした。");
+    responseText = jsonMatch[0];
     
     let data;
     try {
       data = JSON.parse(responseText);
     } catch (e) {
       console.error("LLM JSON Parse Error:", e);
-      throw new Error("AIの応答解析に失敗しました。再試行してください。");
+      throw new Error("AIの応答を解析できませんでした。もう一度お試しください。");
     }
 
     const dailyPlans = data.dailyPlans || [];
-
-
     const resultMenu: any[] = [];
 
     for (let i = 0; i < dailyPlans.length; i++) {
@@ -178,10 +186,9 @@ JSON形式で出力してください。
   },
 
   /**
-   * 買い物リストの合計金額を計算
+   * 合計金額の計算
    */
   calculateTotalCost(menu: any[]) {
     return menu.reduce((sum, item) => sum + (item.recipe?.estimatedPrice || 0), 0);
   }
 };
-
