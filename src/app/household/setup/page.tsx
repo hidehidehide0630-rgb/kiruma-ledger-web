@@ -62,7 +62,13 @@ export default function HouseholdSetupPage() {
         body: JSON.stringify({ days, budget, startDate: new Date() })
       });
       
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('AIが一時的にJSONではない応答を返しました。しばらく待ってから再度お試しください。');
+      }
       
       if (response.ok && data.success) {
         alert('献立が生成されました！');
