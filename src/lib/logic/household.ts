@@ -127,7 +127,8 @@ export const HouseholdLogic = {
 
 【出力ルール】
 - purchaseUnit名は全日程で統一すること。
-- 今回のプランで新しく買う食材は、その食材が登場する**最初の日だけ** 'isFirstPurchase: true' としてください。2日目以降にその残りを使う場合は 'isFirstPurchase: false' です。
+- 今回のプランで新しく買う食材は、その食材が登場する【全日程】において 'isFirstPurchase: true' としてください。AI側で勝手に在庫扱いしてはいけません。
+- 'isFirstPurchase: false' (在庫利用) を指定できるのは、以下の【現在の在庫状況】にリストされている食材のみです。
 - unitPriceは、その食材が登場する全日程で同じ（販売価格）を記述してください。
 
 【現在の在庫状況（既存のストック）】
