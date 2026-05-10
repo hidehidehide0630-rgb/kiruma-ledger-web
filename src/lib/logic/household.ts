@@ -103,32 +103,31 @@ export const HouseholdLogic = {
     const totalBudgetWithBuffer = tripBudget + 500;
 
     const prompt = `
-あなたはKIRUMA COMPANYの専属シェフ兼、厳格な会計士です。
-今回は「朝食・昼食カテゴリ」の予算管理のみを担当し、${days}日分の昼食をメインとした献立と買い物リストを作成してください。
+あなたはKIRUMA COMPANYの専属シェフ兼、プロの購買マネージャーです。
+「捏造は即解雇」という絶対的なルールの下、${days}日分の昼食メインの献立と買い物リストを作成してください。
 
-【予算の絶対ルール】
-- **今回の使用可能総額: ${totalBudgetWithBuffer}円（税込）**
-  （内訳: システム推奨予算 ${tripBudget}円 ＋ 予備費 500円）
-- **夕食の予算や、アプリに表示されているその他の合計金額は一切無視してください。** 
-- あなたが使えるのは、この **${totalBudgetWithBuffer}円** だけです。この範囲内で${days}日分の「昼食」の質を最大化してください。
+【今回の最優先テーマ】
+- 勃起力の向上・改善（亜鉛、アルギニン、シトルリン、ビタミンEを重視）
+- 胸筋・腹筋の強化（高タンパク、低脂質）
+- 体形の絞り（低GI食品、適正カロリー）
 
-【思考の絶対優先順位】
-1. **在庫リスト（事実）の確認**:
-   ${inventoryList}
-   ここにあるものだけが「在庫利用（isFirstPurchase: false / 0円）」にできます。
-2. **価格の計上**:
-   在庫リストにない食材は、必ず現実的な価格を付けて買い物リストに載せてください。捏造は即座にエラーとなります。正直に価格を出してください。
-3. **昼食メインの構成**:
-   ${days}日分の「昼食（メインディッシュ）」をまず確定させてください。
-   朝食、副菜、汁物は、昼食の余り物や卵・豆腐などの低コストな食材で賄える範囲で構成してください（マストではありません）。
+【献立生成の思考プロセス（厳守）】
+1. **メインディッシュの選定**: 上記テーマを達成するための主菜を${days}日分決めます。
+2. **食材の効率化**: 主菜で購入した食材を極力使い切るように計画します。
+3. **副菜・汁物（任意）**: 主菜で余った食材がある場合、または極めて低コストで済む場合にのみ、副菜や汁物を追加してください。マストではありません。
+
+【最重要事項：捏造の禁止】
+- **予算内に収めるために在庫リストを捏造することは、システムを破壊する『重大な違反行為』です。**
+- 在庫リスト（${inventoryList}）にない食材を「在庫利用（isFirstPurchase: false / 0円）」にすることは、いかなる理由があっても厳禁です。
+- 予算が足りない場合は、**迷わず、躊躇なく、予算を大幅にオーバーしてでも「新規購入（isFirstPurchase: true）」として価格を計上してください。** 予算オーバーは100%許容されますが、捏造は0.1%も許容されません。
+
+【予算のガイドライン】
+- 今回の目安予算: ${totalBudgetWithBuffer}円。
+- **この金額はあくまで『目安』です。** 超過しても全く問題ありません。正直な買い物リストを作ることがあなたの唯一の任務です。
+- 1週間で3000円程度（1日400-500円）あれば、健康的な食事は十分に可能です。計算を放棄せず、論理的に導き出してください。
 
 【食材と単位】
-- 鶏むね肉、卵、豆腐などのコスパ最強食材を駆使し、${totalBudgetWithBuffer}円以内で極限まで栄養価（高タンパク・活力向上）の高い構成にしてください。
 - 単位: 「鶏むね肉 1枚(約300g)」「卵 1パック(10個)」など、現実の買い物単位で出力してください。
-
-【肉体覚醒テーマ】
-- 男性機能最大化（亜鉛、シトルリン等）
-- 筋肥大・体脂肪の絞り
 
 JSON形式で出力してください。
 `;
@@ -147,26 +146,26 @@ JSON形式で出力してください。
     }
 
     // --- 🛡️ HARNESS: 捏造検知バリデーション ---
+    console.log("🛡️ HARNESS: Starting inventory validation...");
     const dailyPlans = data.dailyPlans || [];
     const inventoryNames = inventory.map(i => i.name);
-    const staples = ["塩", "砂糖", "醤油", "味噌", "油", "酢", "酒", "みりん", "米", "水", "マヨネーズ", "ケチャップ"];
+    const staples = ["塩", "砂糖", "醤油", "味噌", "油", "酢", "酒", "みりん", "米", "水", "マヨネーズ", "ケチャップ", "胡椒", "唐辛子", "ニンニク", "生姜"];
 
     for (const plan of dailyPlans) {
       for (const ingredient of plan.ingredients) {
-        // 在庫利用（isFirstPurchase: false）と判断された場合
         if (!ingredient.isFirstPurchase) {
           const name = ingredient.purchaseUnit;
-          // 基本調味料でもなく、かつ在庫リストにも存在しない場合、それは捏造。
           const isStaple = staples.some(s => name.includes(s));
           const isInInventory = inventoryNames.some(i => name.includes(i));
           
           if (!isStaple && !isInInventory) {
             console.error(`🛡️ HARNESS FAILURE: Hallucinated Inventory Detected -> ${name}`);
-            throw new Error(`AIが在庫を捏造しました（${name}）。予算設定を見直すか、もう一度お試しください。`);
+            throw new Error(`AIが在庫を捏造しました（${name}）。在庫リストにない食材を「在庫利用」として計上することは禁止されています。`);
           }
         }
       }
     }
+    console.log("🛡️ HARNESS: Validation passed. No hallucinations detected.");
     // ----------------------------------------
 
     const resultMenu: any[] = [];

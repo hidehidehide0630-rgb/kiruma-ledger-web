@@ -149,12 +149,12 @@ export default function HouseholdSetupPage() {
       </div>
 
       <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex gap-4 items-start">
-        <span className="text-2xl mt-1">💡</span>
+        <span className="text-2xl mt-1">💪</span>
         <div>
           <h4 className="font-bold text-amber-800 text-sm">Vitality Tip</h4>
           <p className="text-xs text-amber-700 leading-relaxed">
-            現在、バイタリティモードがデフォルトでONになっています。
-            テストステロン値を高め、血管の健康（NO産生）を意識した食材（ニラ、牛肉、スイカ、キュウリ等）が優先的に選出されます。
+            現在、ボディメイク＆バイタリティモードが適用されています。
+            勃起力の向上、胸筋・腹筋の強化、そして体形の絞りを同時に実現するため、高タンパク・低GI・血管拡張（NO産生）を意識した食材が優先されます。
           </p>
         </div>
       </div>
