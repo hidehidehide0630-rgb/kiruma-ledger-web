@@ -155,10 +155,10 @@ async function main() {
         { name: '鶏むね肉', quantity: '300g', price: 264 },
         { name: 'ほうれん草', quantity: '1/2束', price: 100 },
         { name: 'にんにく', quantity: '2片', price: 60 },
-        { name: 'オリーブオイル', quantity: '適量', price: 50 }
+        { name: 'オリーブオイル', quantity: '適量', price: 0 }
       ]),
       instructions: '1. 鶏むね肉を厚めに切り、塩コショウで下味をつける\n2. にんにくをオリーブオイルで炒め、香りを出す\n3. 肉を焼き、仕上げにほうれん草をさっと炒め合わせる',
-      estimatedPrice: 474
+      estimatedPrice: 424
     },
     {
       id: 'v_rec_002',
@@ -167,10 +167,10 @@ async function main() {
         { name: '豚赤身スライス', quantity: '200g', price: 356 },
         { name: 'ほうれん草', quantity: '1束', price: 198 },
         { name: 'ブロッコリー', quantity: '100g', price: 100 },
-        { name: 'ごま油', quantity: '少々', price: 20 }
+        { name: 'ごま油', quantity: '少々', price: 0 }
       ]),
       instructions: '1. 豚肉と野菜を一口大に切る\n2. 強火で豚肉を炒め、野菜を加える\n3. 醤油と酒で味を整え、ごま油で仕上げる',
-      estimatedPrice: 674
+      estimatedPrice: 654
     },
     {
       id: 'v_rec_003',
@@ -192,10 +192,10 @@ async function main() {
         { name: '納豆', quantity: '1パック', price: 35 },
         { name: 'めかぶ', quantity: '1パック', price: 50 },
         { name: '生卵', quantity: '1個', price: 28 },
-        { name: '麦飯', quantity: '1杯', price: 50 }
+        { name: '麦飯', quantity: '1杯', price: 0 }
       ]),
       instructions: '1. まぐろを角切りにする\n2. 納豆、めかぶを混ぜ合わせる\n3. 麦飯の上に具材を盛り、中央に卵黄を落とす',
-      estimatedPrice: 563
+      estimatedPrice: 513
     },
     {
       id: 'v_rec_005',
@@ -216,10 +216,10 @@ async function main() {
         { name: 'サバ切り身', quantity: '2切れ', price: 300 },
         { name: 'トマト', quantity: '1個', price: 120 },
         { name: 'にんにく', quantity: '1片', price: 30 },
-        { name: 'バター', quantity: '10g', price: 30 }
+        { name: 'バター', quantity: '10g', price: 0 }
       ]),
       instructions: '1. サバをにんにくと共にバターで焼く\n2. カットしたトマトを加え、水分が出るまで加熱する\n3. 塩コショウで味を整える',
-      estimatedPrice: 480
+      estimatedPrice: 450
     },
     {
       id: 'v_rec_007',
@@ -239,11 +239,11 @@ async function main() {
       ingredients: JSON.stringify([
         { name: '鶏むね肉', quantity: '200g', price: 176 },
         { name: 'ブロッコリー', quantity: '1/2株', price: 100 },
-        { name: '塩麹', quantity: '大さじ1', price: 20 },
+        { name: '塩麹', quantity: '大さじ1', price: 0 },
         { name: 'にんにく', quantity: '1片', price: 30 }
       ]),
       instructions: '1. 鶏肉をそぎ切りにし、塩麹で揉み込む\n2. ブロッコリーを小房に分け、レンジで加熱する\n3. フライパンでにんにくと共に鶏肉を焼き、最後にブロッコリーを合わせる',
-      estimatedPrice: 326
+      estimatedPrice: 306
     },
     {
       id: 'v_rec_009',
@@ -252,10 +252,10 @@ async function main() {
         { name: '鯖水煮缶', quantity: '1缶', price: 250 },
         { name: 'トマト缶', quantity: '1/2缶', price: 70 },
         { name: 'パスタ', quantity: '100g', price: 50 },
-        { name: '唐辛子', quantity: '少々', price: 10 }
+        { name: '唐辛子', quantity: '少々', price: 0 }
       ]),
       instructions: '1. パスタを茹でる\n2. フライパンで鯖、トマト缶、唐辛子を加熱する\n3. 茹で上がったパスタをソースと絡める',
-      estimatedPrice: 380
+      estimatedPrice: 370
     },
     {
       id: 'v_rec_010',
