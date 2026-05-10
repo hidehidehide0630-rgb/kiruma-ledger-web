@@ -199,3 +199,15 @@ model MealPlan {
   @@index([recipeId])
   @@index([shoppingListId])
 }
+
+model Inventory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  quantity  Float    @default(0)
+  unit      String?
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}

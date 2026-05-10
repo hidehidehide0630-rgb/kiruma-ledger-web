@@ -1,4 +1,5 @@
 import RecipeViewButton from '@/components/meals/RecipeViewButton';
+import ConfirmPurchaseButton from '@/components/meals/ConfirmPurchaseButton';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 
@@ -15,6 +16,10 @@ export default async function MealManagementPage() {
     },
     include: { recipe: true },
     orderBy: { date: 'asc' }
+  });
+
+  const inventory = await prisma.inventory.findMany({
+    orderBy: { updatedAt: 'desc' }
   });
 
   // 買い物リストと合計金額の集計
@@ -122,9 +127,12 @@ export default async function MealManagementPage() {
           </div>
           
           <div className="md:w-2/3 w-full">
-            <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase mb-6 flex items-center gap-2">
-              <span className="text-2xl">🛒</span> Shopping List
-            </h3>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase flex items-center gap-2">
+                <span className="text-2xl">🛒</span> Shopping List
+              </h3>
+              <ConfirmPurchaseButton shoppingItems={shoppingList} />
+            </div>
             <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto pr-2">
               {shoppingList.map((item, idx) => (
                 <div key={idx} className="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex flex-col gap-1 hover:border-pink-300 transition-colors min-w-[120px]">
@@ -143,6 +151,28 @@ export default async function MealManagementPage() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 冷蔵庫（在庫）状況 */}
+      {inventory.length > 0 && (
+        <div className="bg-gray-50 rounded-[2.5rem] p-8 border border-gray-200">
+          <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase mb-6 flex items-center gap-2">
+            <span className="text-2xl">🧊</span> Refrigerator Stock (みなし在庫)
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {inventory.map((item) => (
+              <div key={item.id} className="bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm flex items-center gap-3">
+                <span className="text-xs font-bold text-gray-700">{item.name}</span>
+                <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full">
+                  残り: {item.quantity}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-[10px] text-gray-400 font-bold italic">
+            ※献立を確定すると、買い物リストの内容がここに追加されます。次回の献立生成時にAIがこれらの在庫を優先的に使用します。
+          </p>
         </div>
       )}
 
