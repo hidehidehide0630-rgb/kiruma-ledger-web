@@ -152,10 +152,10 @@ async function main() {
       id: 'v_rec_001',
       name: '活力・マッスル鶏むねガーリックステーキ',
       ingredients: JSON.stringify([
-        { name: '鶏むね肉', quantity: '300g' },
-        { name: 'ほうれん草', quantity: '1/2束' },
-        { name: 'にんにく', quantity: '2片' },
-        { name: 'オリーブオイル', quantity: '適量' }
+        { name: '鶏むね肉', quantity: '300g', price: 450 },
+        { name: 'ほうれん草', quantity: '1/2束', price: 150 },
+        { name: 'にんにく', quantity: '2片', price: 100 },
+        { name: 'オリーブオイル', quantity: '適量', price: 150 }
       ]),
       instructions: '1. 鶏むね肉を厚めに切り、塩コショウで下味をつける\n2. にんにくをオリーブオイルで炒め、香りを出す\n3. 肉を焼き、仕上げにほうれん草をさっと炒め合わせる',
       estimatedPrice: 850
@@ -164,10 +164,10 @@ async function main() {
       id: 'v_rec_002',
       name: '血流改善！ほうれん草と豚の亜鉛チャージ炒め',
       ingredients: JSON.stringify([
-        { name: '豚赤身スライス', quantity: '200g' },
-        { name: 'ほうれん草', quantity: '1束' },
-        { name: 'ブロッコリー', quantity: '100g' },
-        { name: 'ごま油', quantity: '少々' }
+        { name: '豚赤身スライス', quantity: '200g', price: 500 },
+        { name: 'ほうれん草', quantity: '1束', price: 250 },
+        { name: 'ブロッコリー', quantity: '100g', price: 150 },
+        { name: 'ごま油', quantity: '少々', price: 50 }
       ]),
       instructions: '1. 豚肉と野菜を一口大に切る\n2. 強火で豚肉を炒め、野菜を加える\n3. 醤油と酒で味を整え、ごま油で仕上げる',
       estimatedPrice: 950
@@ -176,10 +176,10 @@ async function main() {
       id: 'v_rec_003',
       name: '除脂肪・胸筋強化！トマトと赤身肉の煮込み',
       ingredients: JSON.stringify([
-        { name: '牛赤身細切れ', quantity: '200g' },
-        { name: 'トマト缶', quantity: '1/2缶' },
-        { name: '玉ねぎ', quantity: '1/2個' },
-        { name: 'ブロッコリー', quantity: '適量' }
+        { name: '牛赤身細切れ', quantity: '200g', price: 650 },
+        { name: 'トマト缶', quantity: '1/2缶', price: 100 },
+        { name: '玉ねぎ', quantity: '1/2個', price: 100 },
+        { name: 'ブロッコリー', quantity: '適量', price: 250 }
       ]),
       instructions: '1. 玉ねぎを炒め、牛肉を加えて焼き色をつける\n2. トマト缶と少々の水、コンソメを加えて煮込む\n3. 仕上げにブロッコリーを添える',
       estimatedPrice: 1100
@@ -188,11 +188,11 @@ async function main() {
       id: 'v_rec_004',
       name: '真・バイタリティまぐろ納豆丼',
       ingredients: JSON.stringify([
-        { name: 'まぐろ赤身', quantity: '100g' },
-        { name: '納豆', quantity: '1パック' },
-        { name: 'めかぶ', quantity: '1パック' },
-        { name: '生卵', quantity: '1個' },
-        { name: '麦飯', quantity: '1杯' }
+        { name: 'まぐろ赤身', quantity: '100g', price: 800 },
+        { name: '納豆', quantity: '1パック', price: 100 },
+        { name: 'めかぶ', quantity: '1パック', price: 100 },
+        { name: '生卵', quantity: '1個', price: 50 },
+        { name: '麦飯', quantity: '1杯', price: 150 }
       ]),
       instructions: '1. まぐろを角切りにする\n2. 納豆、めかぶを混ぜ合わせる\n3. 麦飯の上に具材を盛り、中央に卵黄を落とす',
       estimatedPrice: 1200
@@ -201,10 +201,10 @@ async function main() {
       id: 'v_rec_005',
       name: 'スタミナ補給！レバニラ・バイタリティ炒め',
       ingredients: JSON.stringify([
-        { name: '豚レバー', quantity: '150g' },
-        { name: 'ニラ', quantity: '1束' },
-        { name: 'もやし', quantity: '100g' },
-        { name: 'にんにく・生姜', quantity: '各1片' }
+        { name: '豚レバー', quantity: '150g', price: 300 },
+        { name: 'ニラ', quantity: '1束', price: 200 },
+        { name: 'もやし', quantity: '100g', price: 100 },
+        { name: 'にんにく・生姜', quantity: '各1片', price: 150 }
       ]),
       instructions: '1. レバーの下処理を行い、片栗粉をまぶして焼く\n2. にんにく、生姜、野菜を加えて一気に炒める\n3. オイスターソースと醤油で味を付ける',
       estimatedPrice: 750
@@ -213,10 +213,10 @@ async function main() {
       id: 'v_rec_006',
       name: '胸筋ビルドアップ・サバのガリバタトマト焼き',
       ingredients: JSON.stringify([
-        { name: 'サバ切り身', quantity: '2切れ' },
-        { name: 'トマト', quantity: '1個' },
-        { name: 'にんにく', quantity: '1片' },
-        { name: 'バター', quantity: '10g' }
+        { name: 'サバ切り身', quantity: '2切れ', price: 450 },
+        { name: 'トマト', quantity: '1個', price: 150 },
+        { name: 'にんにく', quantity: '1片', price: 100 },
+        { name: 'バター', quantity: '10g', price: 100 }
       ]),
       instructions: '1. サバをにんにくと共にバターで焼く\n2. カットしたトマトを加え、水分が出るまで加熱する\n3. 塩コショウで味を整える',
       estimatedPrice: 800
@@ -225,10 +225,10 @@ async function main() {
       id: 'v_rec_007',
       name: '亜鉛最大化！厚揚げと豚のオイスター炒め',
       ingredients: JSON.stringify([
-        { name: '豚バラ肉', quantity: '100g' },
-        { name: '厚揚げ', quantity: '1枚' },
-        { name: '小松菜', quantity: '1/2束' },
-        { name: 'カシューナッツ', quantity: '少々' }
+        { name: '豚バラ肉', quantity: '100g', price: 350 },
+        { name: '厚揚げ', quantity: '1枚', price: 200 },
+        { name: '小松菜', quantity: '1/2束', price: 200 },
+        { name: 'カシューナッツ', quantity: '少々', price: 150 }
       ]),
       instructions: '1. 厚揚げと肉を焼き、焼き色をつける\n2. 小松菜とナッツを加えて炒め合わせる\n3. オイスターソースでコクを出す',
       estimatedPrice: 900
@@ -237,10 +237,10 @@ async function main() {
       id: 'v_rec_008',
       name: '鶏むね肉とブロッコリーの最強筋肉炒め',
       ingredients: JSON.stringify([
-        { name: '鶏むね肉', quantity: '200g' },
-        { name: 'ブロッコリー', quantity: '1/2株' },
-        { name: '塩麹', quantity: '大さじ1' },
-        { name: 'にんにく', quantity: '1片' }
+        { name: '鶏むね肉', quantity: '200g', price: 250 },
+        { name: 'ブロッコリー', quantity: '1/2株', price: 150 },
+        { name: '塩麹', quantity: '大さじ1', price: 20 },
+        { name: 'にんにく', quantity: '1片', price: 30 }
       ]),
       instructions: '1. 鶏肉をそぎ切りにし、塩麹で揉み込む\n2. ブロッコリーを小房に分け、レンジで加熱する\n3. フライパンでにんにくと共に鶏肉を焼き、最後にブロッコリーを合わせる',
       estimatedPrice: 450
@@ -249,10 +249,10 @@ async function main() {
       id: 'v_rec_009',
       name: '血流UP！鯖缶とトマトの地中海風パスタ',
       ingredients: JSON.stringify([
-        { name: '鯖水煮缶', quantity: '1缶' },
-        { name: 'トマト缶', quantity: '1/2缶' },
-        { name: 'パスタ', quantity: '100g' },
-        { name: '唐辛子', quantity: '少々' }
+        { name: '鯖水煮缶', quantity: '1缶', price: 250 },
+        { name: 'トマト缶', quantity: '1/2缶', price: 100 },
+        { name: 'パスタ', quantity: '100g', price: 150 },
+        { name: '唐辛子', quantity: '少々', price: 50 }
       ]),
       instructions: '1. パスタを茹でる\n2. フライパンで鯖、トマト缶、唐辛子を加熱する\n3. 茹で上がったパスタをソースと絡める',
       estimatedPrice: 550
@@ -261,10 +261,10 @@ async function main() {
       id: 'v_rec_010',
       name: '最強の亜鉛源！豚レバーの生姜焼き風',
       ingredients: JSON.stringify([
-        { name: '豚レバー', quantity: '150g' },
-        { name: '玉ねぎ', quantity: '1/2個' },
-        { name: '生姜', quantity: '1片' },
-        { name: 'ニラ', quantity: '1/2束' }
+        { name: '豚レバー', quantity: '150g', price: 200 },
+        { name: '玉ねぎ', quantity: '1/2個', price: 100 },
+        { name: '生姜', quantity: '1片', price: 80 },
+        { name: 'ニラ', quantity: '1/2束', price: 100 }
       ]),
       instructions: '1. レバーを下処理し、薄切りにする\n2. 玉ねぎとレバーを炒め、生姜醤油で味付ける\n3. 最後にニラを加えてサッと炒める',
       estimatedPrice: 480

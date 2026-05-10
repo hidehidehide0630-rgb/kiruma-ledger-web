@@ -19,9 +19,10 @@ export default async function MealManagementPage() {
 
   // 買い物リストと合計金額の集計
   let totalCost = 0;
-  const shoppingListMap = new Map<string, string[]>();
+  const shoppingListMap = new Map<string, { quantities: string[], totalPrice: number }>();
 
   mealPlans.forEach(plan => {
+    // レシピ全体の推定価格を加算（材料ごとの価格の合計と一致するはずですが、念のため）
     totalCost += plan.recipe.estimatedPrice;
     
     if (plan.recipe.ingredients) {
@@ -31,28 +32,33 @@ export default async function MealManagementPage() {
           parsed.forEach((i: any) => {
             const name = i.name || i.ingredientId || '不明な材料';
             const qty = i.quantity || '';
+            const price = typeof i.price === 'number' ? i.price : 0;
+
             if (!shoppingListMap.has(name)) {
-              shoppingListMap.set(name, []);
+              shoppingListMap.set(name, { quantities: [], totalPrice: 0 });
             }
-            if (qty) shoppingListMap.get(name)?.push(qty);
+            const item = shoppingListMap.get(name)!;
+            if (qty) item.quantities.push(qty);
+            item.totalPrice += price;
           });
         }
       } catch (e) {
-        // JSONパースに失敗した場合はカンマ等で分割
+        // JSONパースに失敗した場合はカンマ等で分割（価格は0として扱う）
         const items = plan.recipe.ingredients.split(/[、,]/).map(s => s.trim()).filter(Boolean);
         items.forEach(item => {
           if (!shoppingListMap.has(item)) {
-            shoppingListMap.set(item, []);
+            shoppingListMap.set(item, { quantities: [], totalPrice: 0 });
           }
         });
       }
     }
   });
 
-  const shoppingList = Array.from(shoppingListMap.entries()).map(([name, quantities]) => {
+  const shoppingList = Array.from(shoppingListMap.entries()).map(([name, data]) => {
     return {
       name,
-      quantity: quantities.length > 0 ? quantities.join(' + ') : '適量'
+      quantity: data.quantities.length > 0 ? data.quantities.join(' + ') : '適量',
+      totalPrice: data.totalPrice
     };
   });
 
@@ -103,11 +109,16 @@ export default async function MealManagementPage() {
             <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase mb-6 flex items-center gap-2">
               <span className="text-2xl">🛒</span> Shopping List
             </h3>
-            <div className="flex flex-wrap gap-3 max-h-48 overflow-y-auto pr-2">
+            <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto pr-2">
               {shoppingList.map((item, idx) => (
-                <div key={idx} className="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 hover:border-pink-300 transition-colors">
-                  <span className="font-bold text-gray-700">{item.name}</span>
-                  <span className="text-[10px] font-black text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">{item.quantity}</span>
+                <div key={idx} className="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex flex-col gap-1 hover:border-pink-300 transition-colors min-w-[120px]">
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="font-bold text-gray-700 text-sm">{item.name}</span>
+                    <span className="text-[11px] font-black text-pink-600 italic">¥{item.totalPrice.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">{item.quantity}</span>
+                  </div>
                 </div>
               ))}
             </div>

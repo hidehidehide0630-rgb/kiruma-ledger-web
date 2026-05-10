@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 interface Ingredient {
   name: string;
   quantity: string;
+  price?: number;
 }
 
 interface Recipe {
@@ -78,7 +79,14 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
               {ingredients.length > 0 ? (
                 ingredients.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-pink-100 transition-colors">
-                    <span className="font-bold text-gray-700">{item.name}</span>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-700">{item.name}</span>
+                      {item.price && (
+                        <span className="text-[10px] font-black text-pink-600 italic">
+                          ¥{item.price.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs font-black text-pink-500 bg-white px-3 py-1 rounded-full shadow-sm">{item.quantity}</span>
                   </div>
                 ))
