@@ -88,11 +88,11 @@ export default function HouseholdSetupPage() {
       </div>
 
       {recs.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex justify-center">
           {recs.map(rec => (
-            <div key={rec.categoryId} className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+            <div key={rec.categoryId} className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow max-w-sm w-full">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">{rec.categoryId === 11 ? '☕' : '🍲'}</span>
+                <span className="text-xl">🍱</span>
                 <p className="text-gray-800 font-bold">{rec.name}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 mb-4">

@@ -15,10 +15,9 @@ export async function GET(request: NextRequest) {
     const daysRemaining = lastDayOfMonth - day + 1;
 
     // カテゴリ定義
-    // 11: 朝食・昼食, 12: 夕食
+    // 11: 朝食・昼食
     const categories = [
-      { id: 11, name: '朝食・昼食' },
-      { id: 12, name: '夕食' }
+      { id: 11, name: '朝食・昼食' }
     ];
 
     const recommendations = await Promise.all(categories.map(async (cat) => {
