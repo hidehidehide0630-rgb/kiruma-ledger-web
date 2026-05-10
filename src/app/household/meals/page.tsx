@@ -23,12 +23,13 @@ export default async function MealManagementPage() {
   });
 
   // 買い物リストと合計金額の集計
-  let totalCost = 0;
-  const shoppingListMap = new Map<string, { quantities: Set<string>, totalPrice: number }>();
+  const shoppingListMap = new Map<string, { 
+    usageAmount: Set<string>, 
+    unitPrice: number, 
+    isNewPurchase: boolean 
+  }>();
 
   mealPlans.forEach(plan => {
-    totalCost += plan.recipe.estimatedPrice;
-    
     if (plan.recipe.ingredients) {
       try {
         const parsed = JSON.parse(plan.recipe.ingredients);
@@ -36,27 +37,38 @@ export default async function MealManagementPage() {
           parsed.forEach((i: any) => {
             const name = i.purchaseUnit || i.name || '不明な材料';
             const usage = i.usageAmount || i.quantity || '';
-            const price = i.isFirstPurchase ? (i.unitPrice || i.price || 0) : 0;
+            const price = i.unitPrice || i.price || 0;
+            const isFirst = i.isFirstPurchase === true;
 
             if (!shoppingListMap.has(name)) {
-              shoppingListMap.set(name, { quantities: new Set(), totalPrice: 0 });
+              shoppingListMap.set(name, { 
+                usageAmount: new Set(), 
+                unitPrice: price, 
+                isNewPurchase: false 
+              });
             }
             const item = shoppingListMap.get(name)!;
-            if (usage) item.quantities.add(usage);
-            item.totalPrice += price;
+            if (usage) item.usageAmount.add(usage);
+            if (isFirst) item.isNewPurchase = true;
+            if (price > 0 && item.unitPrice === 0) item.unitPrice = price;
           });
         }
       } catch (e) {
-        // フォールバック
+        // Parse error
       }
     }
   });
 
+  let totalCost = 0;
   const shoppingList = Array.from(shoppingListMap.entries()).map(([name, data]) => {
+    const finalPrice = data.isNewPurchase ? data.unitPrice : 0;
+    totalCost += finalPrice;
+    
     return {
       name,
-      quantity: data.quantities.size > 0 ? Array.from(data.quantities).join(' / ') : '適量',
-      totalPrice: data.totalPrice
+      quantity: Array.from(data.usageAmount).join(' / '),
+      totalPrice: finalPrice,
+      isFromInventory: !data.isNewPurchase
     };
   });
 
@@ -139,7 +151,7 @@ export default async function MealManagementPage() {
                   <div className="flex justify-between items-center gap-4">
                     <span className="font-bold text-gray-700 text-xs">{item.name}</span>
                     <span className="text-[11px] font-black text-pink-600 italic">
-                      {item.totalPrice > 0 ? `¥${item.totalPrice.toLocaleString()}` : '在庫利用'}
+                      {item.isFromInventory ? '在庫利用' : `¥${item.totalPrice.toLocaleString()}`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
