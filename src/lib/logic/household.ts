@@ -9,6 +9,15 @@ export interface RecipeCandidate {
 
 export const HouseholdLogic = {
   /**
+   * レシピ生成・価格設定ガイドライン (AI用プロンプト)
+   * ターゲット: 埼玉県内スーパー (ベルク, イオン, 生鮮市場TOP) の平均相場
+   * 基準単価例: 
+   *   - 鶏むね肉: 88円/100g, 豚バラ: 198円/100g, 牛赤身: 350円/100g
+   *   - 卵: 28円/個, 納豆: 35円/パック, ほうれん草: 198円/束
+   *   - 玉ねぎ/人参/じゃがいも: 50-70円/個
+   */
+
+  /**
    * 1回あたりの買い物予算を計算
    */
   calculateTripBudget(monthlyBudget: number, tripsPerMonth: number, reserveRate = 0.05) {

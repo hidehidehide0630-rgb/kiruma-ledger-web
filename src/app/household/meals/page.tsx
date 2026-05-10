@@ -32,7 +32,7 @@ export default async function MealManagementPage() {
           parsed.forEach((i: any) => {
             const name = i.name || i.ingredientId || '不明な材料';
             const qty = i.quantity || '';
-            const price = typeof i.price === 'number' ? i.price : 0;
+            const price = (typeof i.price === 'number' && !isNaN(i.price)) ? i.price : 0;
 
             if (!shoppingListMap.has(name)) {
               shoppingListMap.set(name, { quantities: [], totalPrice: 0 });
