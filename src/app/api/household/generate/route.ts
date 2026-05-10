@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { HouseholdLogic } from '@/lib/logic/household';
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const { days, budget, startDate } = await req.json();

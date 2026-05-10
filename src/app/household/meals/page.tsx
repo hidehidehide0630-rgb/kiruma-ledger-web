@@ -19,10 +19,9 @@ export default async function MealManagementPage() {
 
   // 買い物リストと合計金額の集計
   let totalCost = 0;
-  const shoppingListMap = new Map<string, { quantities: string[], totalPrice: number }>();
+  const shoppingListMap = new Map<string, { quantities: Set<string>, totalPrice: number }>();
 
   mealPlans.forEach(plan => {
-    // レシピ全体の推定価格を加算（材料ごとの価格の合計と一致するはずですが、念のため）
     totalCost += plan.recipe.estimatedPrice;
     
     if (plan.recipe.ingredients) {
@@ -30,26 +29,20 @@ export default async function MealManagementPage() {
         const parsed = JSON.parse(plan.recipe.ingredients);
         if (Array.isArray(parsed)) {
           parsed.forEach((i: any) => {
-            const name = i.name || i.ingredientId || '不明な材料';
-            const qty = i.quantity || '';
-            const price = (typeof i.price === 'number' && !isNaN(i.price)) ? i.price : 0;
+            const name = i.purchaseUnit || i.name || '不明な材料';
+            const usage = i.usageAmount || i.quantity || '';
+            const price = i.isFirstPurchase ? (i.unitPrice || i.price || 0) : 0;
 
             if (!shoppingListMap.has(name)) {
-              shoppingListMap.set(name, { quantities: [], totalPrice: 0 });
+              shoppingListMap.set(name, { quantities: new Set(), totalPrice: 0 });
             }
             const item = shoppingListMap.get(name)!;
-            if (qty) item.quantities.push(qty);
+            if (usage) item.quantities.add(usage);
             item.totalPrice += price;
           });
         }
       } catch (e) {
-        // JSONパースに失敗した場合はカンマ等で分割（価格は0として扱う）
-        const items = plan.recipe.ingredients.split(/[、,]/).map(s => s.trim()).filter(Boolean);
-        items.forEach(item => {
-          if (!shoppingListMap.has(item)) {
-            shoppingListMap.set(item, { quantities: [], totalPrice: 0 });
-          }
-        });
+        // フォールバック
       }
     }
   });
@@ -57,23 +50,46 @@ export default async function MealManagementPage() {
   const shoppingList = Array.from(shoppingListMap.entries()).map(([name, data]) => {
     return {
       name,
-      quantity: data.quantities.length > 0 ? data.quantities.join(' + ') : '適量',
+      quantity: data.quantities.size > 0 ? Array.from(data.quantities).join(' / ') : '適量',
       totalPrice: data.totalPrice
     };
   });
 
-  // 食材表示用のヘルパー
+  // 献立表示用のヘルパー
+  const renderMenu = (rawName: string) => {
+    try {
+      const menu = JSON.parse(rawName);
+      return (
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="bg-pink-100 text-pink-600 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Main</span>
+            <span className="text-gray-900 font-bold leading-tight">{menu.main}</span>
+          </div>
+          <div className="flex items-start gap-2 opacity-80">
+            <span className="bg-indigo-100 text-indigo-600 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Side</span>
+            <span className="text-gray-700 font-bold text-sm leading-tight">{menu.side}</span>
+          </div>
+          <div className="flex items-start gap-2 opacity-60">
+            <span className="bg-gray-100 text-gray-600 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Soup</span>
+            <span className="text-gray-600 font-bold text-sm leading-tight">{menu.soup}</span>
+          </div>
+        </div>
+      );
+    } catch (e) {
+      return <h3 className="text-xl font-black text-gray-900 mb-6 leading-tight tracking-tight min-h-[3rem]">{rawName}</h3>;
+    }
+  };
+
   const formatIngredients = (rawIngredients: string) => {
     if (!rawIngredients) return '材料情報なし';
     try {
       const parsed = JSON.parse(rawIngredients);
       if (Array.isArray(parsed)) {
-        return parsed.map((i: any) => i.name || i.ingredientId).join('、');
+        return parsed.map((i: any) => i.purchaseUnit || i.name).join('、');
       }
       return rawIngredients;
     } catch (e) {
-      // JSONパースに失敗した場合、JSON構造を簡易的に除去して表示を試みる
-      return rawIngredients.replace(/[\[\]\{\}"']|name:|quantity:/g, '').replace(/,/g, '、').trim();
+      return rawIngredients;
     }
   };
 
@@ -98,7 +114,7 @@ export default async function MealManagementPage() {
             <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50"></div>
             <div className="relative z-10">
               <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase mb-2">Total Budget</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">For 14 Days</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">For {mealPlans.length} Days</p>
               <p className="text-5xl font-black text-pink-600 tracking-tighter italic">
                 ¥{totalCost.toLocaleString()}
               </p>
@@ -113,13 +129,15 @@ export default async function MealManagementPage() {
               {shoppingList.map((item, idx) => (
                 <div key={idx} className="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex flex-col gap-1 hover:border-pink-300 transition-colors min-w-[120px]">
                   <div className="flex justify-between items-center gap-4">
-                    <span className="font-bold text-gray-700 text-sm">{item.name}</span>
+                    <span className="font-bold text-gray-700 text-xs">{item.name}</span>
                     <span className="text-[11px] font-black text-pink-600 italic">
-                      {item.totalPrice > 0 ? `¥${item.totalPrice.toLocaleString()}` : '価格未設定'}
+                      {item.totalPrice > 0 ? `¥${item.totalPrice.toLocaleString()}` : '在庫利用'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">{item.quantity}</span>
+                    <span className="text-[9px] font-black text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">
+                      使用: {item.quantity}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -136,7 +154,7 @@ export default async function MealManagementPage() {
               <div className="absolute top-0 right-0 w-32 h-32 bg-pink-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50"></div>
               
               <div className="relative z-10 flex flex-col h-full">
-                <div className="flex justify-between items-start mb-8">
+                <div className="flex justify-between items-start mb-6">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-[10px] font-black uppercase text-pink-500 tracking-widest italic">
@@ -146,36 +164,31 @@ export default async function MealManagementPage() {
                     <p className="text-2xl font-black text-gray-900 tracking-tighter">
                       {plan.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
                     </p>
-                    <div className="mt-3">
-                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black rounded-lg uppercase tracking-tighter border border-indigo-100">
-                        Vitality Booster
-                      </span>
-                    </div>
                   </div>
-                  <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-gray-100 group-hover:rotate-12 transition-transform">
-                    🥩
+                  <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-gray-100 group-hover:rotate-12 transition-transform">
+                    🍱
                   </div>
                 </div>
 
-                <h3 className="text-xl font-black text-gray-900 mb-6 leading-tight tracking-tight min-h-[3rem]">
-                  {plan.recipe.name}
-                </h3>
+                <div className="mb-6 flex-grow">
+                  {renderMenu(plan.recipe.name)}
+                </div>
 
-                <div className="space-y-5 flex-grow">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest">Est. Cost</span>
+                    <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest italic">Day Cost</span>
                     <span className="text-gray-900 font-black text-lg italic tracking-tighter">¥{plan.recipe.estimatedPrice.toLocaleString()}</span>
                   </div>
                   
-                  <div className="pt-5 border-t border-gray-50">
-                    <p className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-3 italic">Key Ingredients</p>
-                    <p className="text-sm font-bold text-gray-500 leading-relaxed line-clamp-2">
+                  <div className="pt-4 border-t border-gray-50">
+                    <p className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-2 italic">Ingredients Used</p>
+                    <p className="text-xs font-bold text-gray-500 leading-relaxed line-clamp-2">
                       {formatIngredients(plan.recipe.ingredients)}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-8 pt-4">
+                <div className="mt-6">
                   <RecipeViewButton recipe={plan.recipe} />
                 </div>
               </div>

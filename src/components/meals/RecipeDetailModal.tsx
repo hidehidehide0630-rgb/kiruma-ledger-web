@@ -32,7 +32,7 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
 
   if (!isOpen || !mounted) return null;
 
-  let ingredients: Ingredient[] = [];
+  let ingredients: any[] = [];
   try {
     const parsed = JSON.parse(recipe.ingredients);
     ingredients = Array.isArray(parsed) ? parsed : [];
@@ -40,17 +40,34 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
     console.error('Failed to parse ingredients', e);
   }
 
+  // 名前と指示のパース
+  let parsedName: any = { main: recipe.name, side: '', soup: '' };
+  let parsedInstructions: any = { main: recipe.instructions, side: '', soup: '' };
+  let isStructured = false;
+
+  try {
+    const n = JSON.parse(recipe.name);
+    if (n.main) {
+      parsedName = n;
+      isStructured = true;
+    }
+  } catch (e) {}
+
+  try {
+    const ins = JSON.parse(recipe.instructions);
+    if (ins.main) {
+      parsedInstructions = ins;
+    }
+  } catch (e) {}
+
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300"
         onClick={onClose}
       ></div>
 
-      {/* Modal Content */}
       <div className="relative bg-white w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/20">
-        {/* Header with gradient background */}
         <div className="bg-gradient-to-r from-pink-600 to-rose-600 p-8 sm:p-10 text-white relative">
           <button 
             onClick={onClose}
@@ -60,12 +77,17 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
           </button>
           
           <div className="flex items-center gap-3 mb-2">
-            <span className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">Recipe Details</span>
-            <span className="text-xs font-bold opacity-80 italic">¥{recipe.estimatedPrice.toLocaleString()}</span>
+            <span className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">Full Menu Recipe</span>
+            <span className="text-xs font-bold opacity-80 italic">Day Cost: ¥{recipe.estimatedPrice.toLocaleString()}</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tighter leading-tight">
-            {recipe.name}
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter leading-tight">
+            {isStructured ? parsedName.main : recipe.name}
           </h2>
+          {isStructured && (
+            <p className="mt-2 text-sm font-bold opacity-90 italic">
+              + {parsedName.side} / {parsedName.soup}
+            </p>
+          )}
         </div>
 
         <div className="p-8 sm:p-10 overflow-y-auto max-h-[calc(90vh-180px)] space-y-10 custom-scrollbar">
@@ -73,21 +95,26 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
           <section>
             <div className="flex items-center gap-4 mb-6">
               <span className="w-10 h-10 flex items-center justify-center bg-pink-50 text-pink-600 rounded-xl text-xl">🥬</span>
-              <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase">Ingredients</h3>
+              <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase">Ingredients & Purchase Units</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {ingredients.length > 0 ? (
                 ingredients.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-pink-100 transition-colors">
                     <div className="flex flex-col">
-                      <span className="font-bold text-gray-700">{item.name}</span>
-                      {item.price && (
-                        <span className="text-[10px] font-black text-pink-600 italic">
-                          ¥{item.price.toLocaleString()}
-                        </span>
-                      )}
+                      <span className="font-bold text-gray-700 text-sm">{item.purchaseUnit || item.name}</span>
+                      <div className="flex gap-2 mt-1">
+                        <span className="text-[10px] font-black text-gray-400 uppercase">Usage: {item.usageAmount || item.quantity}</span>
+                        {item.isFirstPurchase && (
+                          <span className="text-[10px] font-black text-pink-600 italic">
+                            Buy today: ¥{(item.unitPrice || item.price || 0).toLocaleString()}
+                          </span>
+                        )}
+                        {!item.isFirstPurchase && item.unitPrice > 0 && (
+                          <span className="text-[10px] font-bold text-emerald-600 italic">Using Stock</span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs font-black text-pink-500 bg-white px-3 py-1 rounded-full shadow-sm">{item.quantity}</span>
                   </div>
                 ))
               ) : (
@@ -97,38 +124,58 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
           </section>
 
           {/* Instructions Section */}
-          <section>
+          <section className="space-y-8">
             <div className="flex items-center gap-4 mb-6">
               <span className="w-10 h-10 flex items-center justify-center bg-indigo-50 text-indigo-600 rounded-xl text-xl">👨‍🍳</span>
               <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase">Cooking Instructions</h3>
             </div>
-            <div className="space-y-6">
-              {recipe.instructions.split('\n').map((step, idx) => (
-                <div key={idx} className="flex gap-5 group">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-black text-xs shadow-lg shadow-gray-200 group-hover:scale-110 transition-transform">
-                    {idx + 1}
-                  </div>
-                  <p className="text-gray-600 font-medium leading-relaxed pt-1">
-                    {step.replace(/^\d+[\.\s]+/, '')}
-                  </p>
-                </div>
-              ))}
+            
+            {/* Main */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-black text-pink-600 uppercase tracking-widest italic flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span> Main: {parsedName.main}
+              </h4>
+              <p className="text-gray-600 font-medium leading-relaxed pl-4 border-l-2 border-pink-100">
+                {parsedInstructions.main}
+              </p>
             </div>
+
+            {/* Side */}
+            {parsedName.side && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-black text-indigo-600 uppercase tracking-widest italic flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Side: {parsedName.side}
+                </h4>
+                <p className="text-gray-600 font-medium leading-relaxed pl-4 border-l-2 border-indigo-100">
+                  {parsedInstructions.side}
+                </p>
+              </div>
+            )}
+
+            {/* Soup */}
+            {parsedName.soup && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-black text-gray-600 uppercase tracking-widest italic flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Soup: {parsedName.soup}
+                </h4>
+                <p className="text-gray-600 font-medium leading-relaxed pl-4 border-l-2 border-gray-100">
+                  {parsedInstructions.soup}
+                </p>
+              </div>
+            )}
           </section>
 
-          {/* Tips Section (Mock) */}
           <section className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100">
             <div className="flex items-center gap-3 mb-3">
               <span className="text-xl">💡</span>
-              <h4 className="font-black text-amber-900 tracking-tight">Vitality Tip</h4>
+              <h4 className="font-black text-amber-900 tracking-tight">Zero Waste & Vitality</h4>
             </div>
             <p className="text-sm text-amber-800 leading-relaxed font-bold opacity-80">
-              このレシピには血流改善を助ける成分が含まれています。調理の最後にオリーブオイルを少量足すと、脂溶性ビタミンの吸収率がさらに高まります。
+              この献立は1週間ですべての材料を使い切るように設計されています。常備調味料は、血管健康を促すために塩分控えめ・スパイス多めを推奨します。
             </p>
           </section>
         </div>
 
-        {/* Footer */}
         <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end">
           <button 
             onClick={onClose}
@@ -143,3 +190,4 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
 
   return createPortal(modalContent, document.body);
 }
+
