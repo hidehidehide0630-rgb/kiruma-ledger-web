@@ -140,7 +140,29 @@ JSON形式で出力してください。
       throw new Error("AIの応答解析に失敗しました。再試行してください。");
     }
 
+    // --- 🛡️ HARNESS: 捏造検知バリデーション ---
     const dailyPlans = data.dailyPlans || [];
+    const inventoryNames = inventory.map(i => i.name);
+    const staples = ["塩", "砂糖", "醤油", "味噌", "油", "酢", "酒", "みりん", "米", "水", "マヨネーズ", "ケチャップ"];
+
+    for (const plan of dailyPlans) {
+      for (const ingredient of plan.ingredients) {
+        // 在庫利用（isFirstPurchase: false）と判断された場合
+        if (!ingredient.isFirstPurchase) {
+          const name = ingredient.purchaseUnit;
+          // 基本調味料でもなく、かつ在庫リストにも存在しない場合、それは捏造。
+          const isStaple = staples.some(s => name.includes(s));
+          const isInInventory = inventoryNames.some(i => name.includes(i));
+          
+          if (!isStaple && !isInInventory) {
+            console.error(`🛡️ HARNESS FAILURE: Hallucinated Inventory Detected -> ${name}`);
+            throw new Error(`AIが在庫を捏造しました（${name}）。予算設定を見直すか、もう一度お試しください。`);
+          }
+        }
+      }
+    }
+    // ----------------------------------------
+
     const resultMenu: any[] = [];
 
     for (let i = 0; i < dailyPlans.length; i++) {
