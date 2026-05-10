@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import SeasonalIngredientList from '@/components/meals/SeasonalIngredientList';
 
 interface CategoryRec {
   categoryId: number;
@@ -122,6 +123,9 @@ export default function HouseholdSetupPage() {
           ))}
         </div>
       )}
+
+      {/* 旬の食材リストを表示 */}
+      <SeasonalIngredientList />
 
       <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-xl space-y-6">
         <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">

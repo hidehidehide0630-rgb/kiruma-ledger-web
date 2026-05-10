@@ -31,6 +31,13 @@ export const HouseholdLogic = {
     budgetBuffer?: number;
   }) {
     const { startDate, days, tripBudget, vitalityMode } = params;
+
+    // マスター食材リストを取得
+    const masters = await prisma.ingredientMaster.findMany();
+    const currentMonth = startDate.getMonth() + 1;
+    const mastersPrompt = masters.map(m => 
+      `- ${m.name} (${m.category}, 旬:${m.seasonalMonths.join(',')}月): ${m.vitalityBenefit}, 基準価格:¥${m.basePrice}/${m.unit}, 活力食材:${m.isVitality}`
+    ).join('\n');
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     const model = genAI.getGenerativeModel({ 
@@ -46,6 +53,20 @@ export const HouseholdLogic = {
         responseSchema: {
           type: SchemaType.OBJECT,
           properties: {
+            weeklyBatchMissions: {
+              type: SchemaType.ARRAY,
+              description: "週2回（1日目と5日目）にまとめて作る副菜のミッション。主菜の余り食材を活用せよ。不要なら空配列で良い。",
+              items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  day: { type: SchemaType.INTEGER, description: "実施する日（1または5）" },
+                  missionName: { type: SchemaType.STRING },
+                  instructions: { type: SchemaType.STRING },
+                  ingredients: { type: SchemaType.STRING }
+                },
+                required: ["day", "missionName", "instructions", "ingredients"]
+              }
+            },
             dailyPlans: {
               type: SchemaType.ARRAY,
               items: {
@@ -55,8 +76,8 @@ export const HouseholdLogic = {
                     type: SchemaType.OBJECT,
                     properties: {
                       main: { type: SchemaType.STRING },
-                      side: { type: SchemaType.STRING, description: "主菜の余り食材で構成すること。食材がない場合は『なし』で良い" },
-                      soup: { type: SchemaType.STRING, description: "主菜の余り食材で構成すること。食材がない場合は『なし』で良い" }
+                      side: { type: SchemaType.STRING, description: "作り置き（weeklyBatchMissions）から提供すること。" },
+                      soup: { type: SchemaType.STRING, description: "主菜の余り食材で即座に作れるもの。食材がない場合は『なし』で良い" }
                     },
                     required: ["main", "side", "soup"]
                   },
@@ -75,9 +96,9 @@ export const HouseholdLogic = {
                     items: {
                       type: SchemaType.OBJECT,
                       properties: {
-                        purchaseUnit: { type: SchemaType.STRING, description: "スーパーの販売単位（例：卵10個入パック、玉ねぎ1袋(3個入)、豚バラ300gトレイ）。" },
-                        usageAmount: { type: SchemaType.STRING, description: "その日の使用量。必ず単位(g, 個, 本など)を付けること（例：2個、1/2個、150g）" },
-                        unitPrice: { type: SchemaType.INTEGER, description: "販売単位（パック）あたりの価格。" },
+                        purchaseUnit: { type: SchemaType.STRING, description: "スーパーの販売単位。マスターデータの名称を優先せよ。" },
+                        usageAmount: { type: SchemaType.STRING, description: "その日の使用量。必ず単位(g, 個, 本など)を付けること" },
+                        unitPrice: { type: SchemaType.INTEGER, description: "販売単位（パック）あたりの価格。マスターデータを参照せよ。" },
                         proRatedPrice: { type: SchemaType.INTEGER, description: "その日の使用量に相当する価格。1円単位で正確に計算せよ。" },
                         isFirstPurchase: { type: SchemaType.BOOLEAN, description: "今回の買い物リストに載せるべき『購入品（またはその使い回し）』ならtrue。DBの在庫リストにあるものを利用する場合のみfalse。" }
                       },
@@ -89,7 +110,7 @@ export const HouseholdLogic = {
               }
             }
           },
-          required: ["dailyPlans"]
+          required: ["dailyPlans", "weeklyBatchMissions"]
         }
       }
     });
@@ -106,11 +127,17 @@ export const HouseholdLogic = {
 あなたは「午後の爆発的な活力（剛起）」と「筋力強化（バキバキ）」を専門とする、超攻撃的なスポーツ管理栄養士です。
 
 # Goal
-ユーザーが2ヶ月で「バキバキの肉体」と「最強の血流（勃起力）」を手に入れるための、ガッツリとした昼飯メニューを生成してください。
+ユーザーが「バキバキの肉体」と「最強の血流（勃起力）」を手に入れるための、戦略的・自律的な昼飯メニュー（7日間）を生成してください。
 
-# 献立生成の2大原則（剛起・バキバキ・ロジック）
-1. **血流（即効性）**: アルギニン、亜鉛、アリシン（にんにく等）、カプサイシン（唐辛子等）を組み合わせ、午後の毛細血管への血流を最大化させる。
-2. **筋力（土台）**: 高タンパク質（20g以上）を厳守。テストステロン値を高める赤身肉やブロッコリーを積極的に採用。
+# 季節性活力戦略（Seasonal Vitality）
+1. **[旬の優先]**: 以下の【マスター食材リスト】から、現在の月（${currentMonth}月）が旬に含まれる食材を最優先で採用せよ。旬の食材は安価で栄養価が最大化されている。
+2. **[活力食材の義務化]**: 'isVitality: true' の食材を主菜に必ず組み込むこと。
+
+# 週次バランス（Weekly Logistics）
+1. **[肉魚比率 4:3]**: 週7日のうち、主菜は「肉4日：魚3日」の黄金比率を厳守せよ。
+2. **[作り置きミッション (Batch Cooking)]**: 
+   - 副菜は毎日作らず、Day 1（月〜木分）とDay 5（金〜日分）の2回に分けて「まとめて作る（Batch Mission）」ロジックで構成せよ。
+   - 副菜の食材は、主菜で買った食材の「余り（端数）」のみで完結させること。副菜のために新規食材を買うことは原則禁止（調味料は除く）。
 
 # 調理・購買ロジック（社長命令）
 1. **[成人男性1人前]**: すべてのレシピは成人男性1人が満足できる分量で構成せよ。
@@ -120,27 +147,15 @@ export const HouseholdLogic = {
    - 'isFirstPurchase: false' (在庫利用) を指定できるのは、以下の【現在の在庫状況】にリストされている食材のみです。
    - 今回の献立プランの中で1日目に買ったものを2日目に使う場合、それは「在庫」ではなく「今回の購入品」の使い回しです。
    - 今回のプランで新しく買う食材（およびその使い回し）は、登場する【全日程】において必ず 'isFirstPurchase: true' としてください。
-4. **[炭水化物のコスト計算除外]**: お米（もち麦入り）などの主食（炭水化物）は、レシピには含めるが、'unitPrice' および 'proRatedPrice' は必ず 0 として計算せよ（買い物予算の計算に含めないため）。
-5. **[在庫の優先消費]**: 【現在の在庫状況】にリストされている食材を最優先で使い切る献立を作成せよ。これらの食材を使用する際は \`isFirstPurchase: false\` とし、コストを計上してはならない。
-
-# 推奨食材と目的
-- **赤身肉（牛・豚・羊）/ レバー**: 亜鉛によるテストステロン向上。
-- **鶏むね肉**: 低脂質・高タンパク。
-- **魚介（サバ・カツオ・エビ）**: EPA/DHA、アルギニンによる血流改善。
-- **ネバネバ系（納豆・山芋・オクラ）**: 血管保護とスタミナ。
-- **玉ねぎ・にんにく・ニラ**: アリシンによる血管拡張。
-- **アボカド / ナッツ**: 男性ホルモン原料となる良質な脂質。
+4. **[炭水化物のコスト計算除外]**: お米（もち麦入り）などの主食（炭水化物）は、レシピには含めるが、'unitPrice' および 'proRatedPrice' は必ず 0 として計算せよ。
 
 # 調理手順の記述ルール（Recipe Standard）
-1. **[構造化]**: \`instructions.main\` の冒頭2行には、必ず「剛起・バキバキの根拠（栄養学的メリット）」を記述し、その後に手順を記述せよ。
+1. **[構造化]**: \`instructions.main\` の冒頭2行には、必ず「剛起・バキバキの根拠（栄養学的メリット）」を記述せよ。
 2. **[番号付き手順]**: 手順は「1.」「2.」のように番号を振り、一般的なレシピアプリのように工程が明確に分かるようにせよ。
-3. **[調味料の明記]**: 使用する調味料（塩、胡椒、醤油、油、各種スパイス等）の具体名と投入タイミングを必ず含めること。「適宜」「お好みで」などの曖昧な表現を排し、味の決め手を論理的に記述せよ。
-4. **[簡潔かつ詳細]**: 簡潔な日本語でありながら、下準備から仕上げまで迷わず調理できる詳細度を維持せよ。
+3. **[調味料の明記]**: 使用する調味料の具体名と投入タイミングを必ず含めること。
 
-# 出力ルール
-- JSONのみを出力してください。Markdownの装飾（\`\`\`json 等）は不要です。
-- purchaseUnit名は全日程で統一すること。
-- unitPriceは、その食材が登場する全日程で同じ（販売価格）を記述してください。
+【マスター食材リスト（${currentMonth}月基準）】
+${mastersPrompt}
 
 【現在の在庫状況（既存のストック）】
 ${inventoryList}
@@ -148,8 +163,7 @@ ${inventoryList}
 
     const userPrompt = `${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達計画を作成してください。
 予算は合計¥${tripBudget}円です。
-まず、全期間の買い物リストを頭の中で完成させ、それを各日に分配する手順で出力してください。
-各レシピの詳細は、分量を含めて具体的に作成してください。`;
+主菜の肉魚比率を4:3にし、旬の食材を活用し、週2回の作り置きミッションで副菜を効率化してください。`;
 
     let retryCount = 0;
     const maxRetries = 2;
@@ -175,26 +189,30 @@ ${inventoryList}
           throw new Error("JSONの構造が不正です（dailyPlansが見つかりません）。");
         }
 
-        return parsedData.dailyPlans.map((plan: any, index: number) => {
-          const planDate = new Date(startDate);
-          planDate.setDate(startDate.getDate() + index);
-          return {
-            date: planDate,
-            recipe: {
-              id: "gen_" + generateId(),
-              name: JSON.stringify(plan.menu),
-              estimatedPrice: plan.dailyEstimatedPrice,
-              ingredients: JSON.stringify(plan.ingredients),
-              instructions: JSON.stringify(plan.instructions)
-            }
-          };
-        });
+        // 型安全性を考慮してデータを整理（UI側の期待に合わせて変換）
+        return {
+          dailyPlans: parsedData.dailyPlans.map((plan: any, index: number) => {
+            const planDate = new Date(startDate);
+            planDate.setDate(startDate.getDate() + index);
+            return {
+              date: planDate,
+              recipe: {
+                id: "gen_" + generateId(),
+                name: JSON.stringify(plan.menu),
+                estimatedPrice: plan.dailyEstimatedPrice,
+                ingredients: JSON.stringify(plan.ingredients),
+                instructions: JSON.stringify(plan.instructions)
+              }
+            };
+          }),
+          weeklyBatchMissions: parsedData.weeklyBatchMissions
+        };
       } catch (e: any) {
         lastError = e;
         console.error(`AI生成リトライ (${retryCount + 1}/${maxRetries + 1}):`, e.message);
         retryCount++;
         if (retryCount <= maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // 2秒待機
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
     }

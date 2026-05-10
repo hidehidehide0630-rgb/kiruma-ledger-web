@@ -41,15 +41,21 @@ export async function POST(req: NextRequest) {
     });
 
     // 2. 献立生成ロジックの実行
-    const generatedMenu = await HouseholdLogic.generateMenu({
+    const { dailyPlans, weeklyBatchMissions } = await HouseholdLogic.generateMenu({
       days: days || 7,
       tripBudget: budget || 15000,
       startDate: new Date(startDate),
       vitalityMode: true // デフォルトON
     });
 
-    // 3. データベースへの保存
-    for (const item of generatedMenu) {
+    // 3. データベースへの保存（ミッションのクリア）
+    await prisma.batchMission.deleteMany({
+        where: {
+            date: { gte: new Date(startDate) }
+        }
+    });
+
+    for (const item of dailyPlans) {
         try {
             // レシピの保存（IDが衝突した場合は更新）
             await prisma.recipe.upsert({
@@ -82,7 +88,22 @@ export async function POST(req: NextRequest) {
         }
     }
 
-    return NextResponse.json({ success: true, count: generatedMenu.length });
+    // ミッションの保存
+    for (const mission of weeklyBatchMissions) {
+        const missionDate = new Date(startDate);
+        missionDate.setDate(startDate.getDate() + (mission.day - 1));
+        await prisma.batchMission.create({
+            data: {
+                day: mission.day,
+                name: mission.missionName,
+                instructions: mission.instructions,
+                ingredients: mission.ingredients,
+                date: missionDate
+            }
+        });
+    }
+
+    return NextResponse.json({ success: true, count: dailyPlans.length });
   } catch (error: any) {
     console.error('--- Generation API error details ---');
     console.error('Error message:', error.message);

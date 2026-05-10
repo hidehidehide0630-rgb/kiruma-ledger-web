@@ -2,6 +2,8 @@ import RecipeViewButton from '@/components/meals/RecipeViewButton';
 import ConfirmPurchaseButton from '@/components/meals/ConfirmPurchaseButton';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import SeasonalIngredientList from '@/components/meals/SeasonalIngredientList';
+import QuickInventoryAdd from '@/components/meals/QuickInventoryAdd';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +24,13 @@ export default async function MealManagementPage() {
     orderBy: { updatedAt: 'desc' }
   });
 
+  const batchMissions = await prisma.batchMission.findMany({
+    where: {
+      date: { gte: today, lte: weekEnd }
+    },
+    orderBy: { date: 'asc' }
+  });
+
   // 買い物リストと合計金額の集計
   const shoppingListMap = new Map<string, { 
     usageAmount: Set<string>, 
@@ -30,7 +39,7 @@ export default async function MealManagementPage() {
   }>();
 
   mealPlans.forEach(plan => {
-    if (plan.recipe.ingredients) {
+    if (plan.recipe?.ingredients) {
       try {
         const parsed = JSON.parse(plan.recipe.ingredients);
         if (Array.isArray(parsed)) {
@@ -167,14 +176,20 @@ export default async function MealManagementPage() {
       )}
 
       {/* 冷蔵庫（在庫）状況 */}
-      {inventory.length > 0 && (
-        <div className="bg-gray-50 rounded-[2.5rem] p-8 border border-gray-200">
-          <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase mb-6 flex items-center gap-2">
-            <span className="text-2xl">🧊</span> Refrigerator Stock (みなし在庫)
+      <div className="bg-gray-50 rounded-[2.5rem] p-8 border border-gray-200">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase flex items-center gap-2">
+            <span className="text-2xl">🧊</span> Refrigerator Stock (現在庫)
           </h3>
+          <Link href="/household/inventory" className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:underline">
+            Manage Stock Manually →
+          </Link>
+        </div>
+        
+        {inventory.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {inventory.map((item) => (
-              <div key={item.id} className="bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm flex items-center gap-3">
+              <div key={item.id} className="bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm flex items-center gap-3 group hover:border-indigo-300 transition-colors">
                 <span className="text-xs font-bold text-gray-700">{item.name}</span>
                 <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full">
                   残り: {item.quantity}
@@ -182,11 +197,74 @@ export default async function MealManagementPage() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-[10px] text-gray-400 font-bold italic">
-            ※献立を確定すると、買い物リストの内容がここに追加されます。次回の献立生成時にAIがこれらの在庫を優先的に使用します。
-          </p>
+        ) : (
+          <p className="text-gray-400 font-bold italic text-sm">在庫データがありません。手動で追加するか、献立を確定してください。</p>
+        )}
+        
+        <QuickInventoryAdd />
+        
+        <p className="mt-4 text-[10px] text-gray-400 font-bold italic">
+          ※献立を確定すると、買い物リストの内容が自動でここに追加されます。
+        </p>
+      </div>
+
+      {/* 作り置きミッション (Batch Missions) */}
+      {batchMissions.length > 0 && (
+        <div className="bg-gradient-to-br from-indigo-50 to-white rounded-[2.5rem] p-8 border border-indigo-100 shadow-lg">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-indigo-200">
+              🔥
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase">Batch Cooking Missions</h3>
+              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">週2回の「攻め」の作り置き</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {batchMissions.map((mission) => (
+              <div key={mission.id} className="bg-white p-6 rounded-[2rem] border border-indigo-50 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <span className="text-6xl italic font-black">Day {mission.day}</span>
+                </div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="px-3 py-1 bg-indigo-600 text-white text-[9px] font-black rounded-full uppercase italic">
+                      Mission Day {mission.day}
+                    </span>
+                    <span className="text-sm font-black text-gray-900 tracking-tight">
+                      {mission.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
+                    </span>
+                  </div>
+                  
+                  <h4 className="text-lg font-black text-gray-800 mb-4 leading-tight">
+                    {mission.name}
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    {mission.ingredients?.split('\n').map((item, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-200"></span>
+                        <span className="text-sm font-bold text-gray-600">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-indigo-50">
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Instructions</p>
+                    <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                      {mission.instructions}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* 旬の食材リスト */}
+      <SeasonalIngredientList />
 
       {/* 今後の献立リスト */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -213,25 +291,25 @@ export default async function MealManagementPage() {
                 </div>
 
                 <div className="mb-6 flex-grow">
-                  {renderMenu(plan.recipe.name)}
+                  {renderMenu(plan.recipe?.name || '無題のレシピ')}
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest italic">この日の食費 (按分)</span>
-                    <span className="text-gray-900 font-black text-lg italic tracking-tighter">¥{plan.recipe.estimatedPrice.toLocaleString()}</span>
+                    <span className="text-gray-900 font-black text-lg italic tracking-tighter">¥{(plan.recipe?.estimatedPrice || 0).toLocaleString()}</span>
                   </div>
                   
                   <div className="pt-4 border-t border-gray-50">
                     <p className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-2 italic">Ingredients Used</p>
                     <p className="text-xs font-bold text-gray-500 leading-relaxed line-clamp-2">
-                      {formatIngredients(plan.recipe.ingredients)}
+                      {formatIngredients(plan.recipe?.ingredients || '')}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-6">
-                  <RecipeViewButton recipe={plan.recipe} />
+                  {plan.recipe && <RecipeViewButton recipe={plan.recipe} />}
                 </div>
               </div>
             </div>

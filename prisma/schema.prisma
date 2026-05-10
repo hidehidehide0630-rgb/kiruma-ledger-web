@@ -211,3 +211,29 @@ model Inventory {
 
   @@index([name])
 }
+
+model IngredientMaster {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  category        String   // meat, fish, vegetable, seasoning, etc.
+  seasonalMonths  Int[]    // 旬の月 [5, 6, 7]
+  vitalityBenefit String?  // 剛起・バキバキへのメリット
+  basePrice       Int      // 基準価格
+  unit            String   // 販売単位（例：100g, 1パック）
+  isVitality      Boolean  @default(false) // 活力食材フラグ
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category])
+}
+
+model BatchMission {
+  id           Int      @id @default(autoincrement())
+  day          Int      // 1 or 5
+  name         String
+  instructions String
+  ingredients  String
+  date         DateTime // 実施日
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
