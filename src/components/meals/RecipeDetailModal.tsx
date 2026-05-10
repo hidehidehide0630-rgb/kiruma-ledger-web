@@ -102,16 +102,23 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
                 ingredients.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-pink-100 transition-colors">
                     <div className="flex flex-col">
-                      <span className="font-bold text-gray-700 text-sm">{item.purchaseUnit || item.name}</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-black text-gray-900 text-lg">{item.usageAmount || item.quantity}</span>
+                        <span className="font-bold text-gray-500 text-sm">の {item.purchaseUnit || item.name}</span>
+                      </div>
                       <div className="flex gap-2 mt-1">
-                        <span className="text-[10px] font-black text-gray-400 uppercase">Usage: {item.usageAmount || item.quantity}</span>
+                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-tight bg-indigo-50 px-2 py-0.5 rounded">
+                          このレシピの原価: ¥{(item.proRatedPrice || 0).toLocaleString()}
+                        </span>
                         {item.isFirstPurchase && (
-                          <span className="text-[10px] font-black text-pink-600 italic">
-                            Buy today: ¥{(item.unitPrice || item.price || 0).toLocaleString()}
+                          <span className="text-[10px] font-black text-pink-600 italic bg-pink-50 px-2 py-0.5 rounded">
+                            今日買うパック価格: ¥{(item.unitPrice || item.price || 0).toLocaleString()}
                           </span>
                         )}
-                        {!item.isFirstPurchase && item.unitPrice > 0 && (
-                          <span className="text-[10px] font-bold text-emerald-600 italic">Using Stock</span>
+                        {!item.isFirstPurchase && (item.unitPrice > 0 || item.price > 0) && (
+                          <span className="text-[10px] font-bold text-emerald-600 italic bg-emerald-50 px-2 py-0.5 rounded">
+                            ストック利用
+                          </span>
                         )}
                       </div>
                     </div>

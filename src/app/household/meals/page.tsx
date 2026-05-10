@@ -218,7 +218,7 @@ export default async function MealManagementPage() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest italic">Day Cost</span>
+                    <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest italic">この日の食費 (按分)</span>
                     <span className="text-gray-900 font-black text-lg italic tracking-tighter">¥{plan.recipe.estimatedPrice.toLocaleString()}</span>
                   </div>
                   
