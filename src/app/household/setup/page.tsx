@@ -67,17 +67,19 @@ export default function HouseholdSetupPage() {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        throw new Error('AIが一時的にJSONではない応答を返しました。しばらく待ってから再度お試しください。');
+        console.error('Non-JSON response:', text);
+        throw new Error('サーバーから不正な形式の応答が返されました。しばらく待ってから再度お試しください。');
       }
       
       if (response.ok && data.success) {
         alert('献立が生成されました！');
         router.push('/household/meals');
       } else {
-        alert(`生成に失敗しました: ${data.error || '不明なエラー'}`);
+        const errorMsg = data.error || '不明なエラーが発生しました。';
+        alert(`生成に失敗しました: ${errorMsg}`);
       }
     } catch (error: any) {
-      console.error(error);
+      console.error('Generate Error:', error);
       alert(`エラーが発生しました: ${error.message || '通信エラー'}`);
     } finally {
       setIsGenerating(false);

@@ -78,8 +78,8 @@ export const HouseholdLogic = {
                         purchaseUnit: { type: SchemaType.STRING, description: "スーパーの販売単位（例：卵10個入パック、玉ねぎ1袋(3個入)、豚バラ300gトレイ）。" },
                         usageAmount: { type: SchemaType.STRING, description: "その日の使用量。必ず単位(g, 個, 本など)を付けること（例：2個、1/2個、150g）" },
                         unitPrice: { type: SchemaType.INTEGER, description: "販売単位（パック）あたりの価格。" },
-                        proRatedPrice: { type: SchemaType.INTEGER, description: "その日の使用量に相当する価格（例：¥300の肉300gのうち150g使うなら150）。1円単位で計算せよ。" },
-                        isFirstPurchase: { type: SchemaType.BOOLEAN, description: "このパックを『今日レジで買う』場合はtrue。既に買った物の残りを使い回す場合はfalse。" }
+                        proRatedPrice: { type: SchemaType.INTEGER, description: "その日の使用量に相当する価格。1円単位で正確に計算せよ。" },
+                        isFirstPurchase: { type: SchemaType.BOOLEAN, description: "今回の買い物リストに載せるべき『購入品（またはその使い回し）』ならtrue。DBの在庫リストにあるものを利用する場合のみfalse。" }
                       },
                       required: ["purchaseUnit", "usageAmount", "unitPrice", "proRatedPrice", "isFirstPurchase"]
                     }
@@ -102,34 +102,43 @@ export const HouseholdLogic = {
       : inventory.map(i => `${i.name}: ${i.quantity}`).join(', ');
 
     const systemPrompt = `
-あなたはプロの「家庭用購買マネージャー」兼「パーソナルシェフ」です。
-社長（成人男性1人）の健康と資産を最大化するため、無駄のない調達・消費計画を立ててください。
+# Role
+あなたは「午後の爆発的な活力（剛起）」と「筋力強化（バキバキ）」を専門とする、超攻撃的なスポーツ管理栄養士です。
 
-【基本方針】
-1. **[成人男性1人前]**: 
-   - すべてのレシピは成人男性1人が満足できる分量（例：肉150-200g程度、野菜たっぷり）で構成してください。
-   
-2. **[分量の適正化]**:
-   - 肉類は「200g〜500g程度のトレイ」が一般的です。業務用サイズは一人暮らしには過剰であり、絶対に禁止します。
-   - 卵は「10個入パック」、野菜は「1個」または「1袋(2〜3個)」といった、通常のスーパーの単位を厳守してください。
+# Goal
+ユーザーが2ヶ月で「バキバキの肉体」と「最強の血流（勃起力）」を手に入れるための、ガッツリとした昼飯メニューを生成してください。
 
-3. **[按分価格の計算]**:
-   - 'dailyEstimatedPrice' は、その日に**「食べた分だけ」**のコストを算出してください。
-   - 例：¥300の「鶏むね肉300gトレイ」を買い、今日150g使う場合：
-     - unitPrice: 300
-     - proRatedPrice: 150
-     - dailyEstimatedPriceの加算分: 150
-   - これにより、1週間の 'dailyEstimatedPrice' の合計が、買い物総額と概ね一致するようにしてください。
+# 献立生成の3大原則（剛起・バキバキ・ロジック）
+1. **血流（即効性）**: アルギニン、亜鉛、アリシン（にんにく等）、カプサイシン（唐辛子等）を組み合わせ、午後の毛細血管への血流を最大化させる。
+2. **筋力（土台）**: 高タンパク質（20g以上）を厳守。テストステロン値を高める赤身肉やブロッコリーを積極的に採用。
+3. **持続（エネルギー）**: 午後のパフォーマンスを下げないよう、血糖値を安定させる低GI炭水化物（全粒粉、玄米、オートミール）を主食にする。
 
-4. **[在庫の捏造厳禁]**:
+# 調理・購買ロジック（社長命令）
+1. **[成人男性1人前]**: すべてのレシピは成人男性1人が満足できる分量で構成せよ。
+2. **[按分価格の計算]**: 'dailyEstimatedPrice' は、その日に「食べた分だけ」のコストを算出せよ。
+   例：¥300の肉300gトレイを買い、今日150g使うなら proRatedPrice: 150 とし、dailyEstimatedPriceに加算する。
+3. **[在庫の捏造厳禁・isFirstPurchaseの厳守]**: 
    - 'isFirstPurchase: false' (在庫利用) を指定できるのは、以下の【現在の在庫状況】にリストされている食材のみです。
-   - 今回の献立プランの中で1日目に買ったものを2日目に使う場合、それは「在庫」ではなく「今回の購入品」です。
+   - 今回の献立プランの中で1日目に買ったものを2日目に使う場合、それは「在庫」ではなく「今回の購入品」の使い回しです。
+   - 今回のプランで新しく買う食材（およびその使い回し）は、登場する【全日程】において必ず 'isFirstPurchase: true' としてください。
 
-【出力ルール】
+# 推奨食材と目的
+- **赤身肉（牛・豚・羊）/ レバー**: 亜鉛によるテストステロン向上。
+- **鶏むね肉**: 低脂質・高タンパク。叩いて「ミンチ状」にすることを推奨。
+- **魚介（サバ・カツオ・エビ）**: EPA/DHA、アルギニンによる血流改善。
+- **ネバネバ系（納豆・山芋・オクラ）**: 血管保護とスタミナ。
+- **玉ねぎ・にんにく・ニラ**: アリシンによる血管拡張。
+- **アボカド / ナッツ**: 男性ホルモン原料となる良質な脂質。
+
+# 調理スタイル
+- 昼は「煮込み」ではなく、満足度の高い「焼き」「炒め」「ガッツリ丼」を推奨。
+- スパイス（タコシーズニング等）を多用し、食欲と代謝を同時に刺激する。
+
+# 出力ルール
+- JSONのみを出力してください。Markdownの装飾（\`\`\`json 等）は不要です。
 - purchaseUnit名は全日程で統一すること。
-- 今回のプランで新しく買う食材は、その食材が登場する【全日程】において 'isFirstPurchase: true' としてください。AI側で勝手に在庫扱いしてはいけません。
-- 'isFirstPurchase: false' (在庫利用) を指定できるのは、以下の【現在の在庫状況】にリストされている食材のみです。
 - unitPriceは、その食材が登場する全日程で同じ（販売価格）を記述してください。
+- **instructions.main** には、必ず「剛起・バキバキの根拠」を2行で書いた後、レシピ手順を記載してください。
 
 【現在の在庫状況（既存のストック）】
 ${inventoryList}
@@ -140,37 +149,55 @@ ${inventoryList}
 まず、全期間の買い物リストを頭の中で完成させ、それを各日に分配する手順で出力してください。
 各レシピの詳細は、分量を含めて具体的に作成してください。`;
 
-    const result = await model.generateContent([systemPrompt, userPrompt]);
-    let responseText = result.response.text();
-    
-    try {
-      // JSON部分のみを抽出（```json ... ``` や前後の雑多なテキストを排除）
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response");
-      }
-      const cleanJson = jsonMatch[0];
-      const parsedData = JSON.parse(cleanJson);
+    let retryCount = 0;
+    const maxRetries = 2;
+    let lastError = null;
 
-      return parsedData.dailyPlans.map((plan: any, index: number) => {
-        const planDate = new Date(startDate);
-        planDate.setDate(startDate.getDate() + index);
-        return {
-          date: planDate,
-          recipe: {
-            id: "gen_" + generateId(),
-            name: JSON.stringify(plan.menu),
-            estimatedPrice: plan.dailyEstimatedPrice,
-            ingredients: JSON.stringify(plan.ingredients),
-            instructions: JSON.stringify(plan.instructions)
-          }
-        };
-      });
-    } catch (e) {
-      console.error("AI Response Parse Error:", e);
-      console.error("Raw Response Text:", responseText);
-      throw e;
+    while (retryCount <= maxRetries) {
+      try {
+        const result = await model.generateContent([systemPrompt, userPrompt]);
+        const responseText = result.response.text();
+        
+        // JSON抽出の堅牢化
+        const startIdx = responseText.indexOf('{');
+        const endIdx = responseText.lastIndexOf('}');
+        
+        if (startIdx === -1 || endIdx === -1) {
+          throw new Error("AIの応答にJSONが含まれていませんでした。");
+        }
+        
+        const cleanJson = responseText.substring(startIdx, endIdx + 1);
+        const parsedData = JSON.parse(cleanJson);
+
+        if (!parsedData.dailyPlans || !Array.isArray(parsedData.dailyPlans)) {
+          throw new Error("JSONの構造が不正です（dailyPlansが見つかりません）。");
+        }
+
+        return parsedData.dailyPlans.map((plan: any, index: number) => {
+          const planDate = new Date(startDate);
+          planDate.setDate(startDate.getDate() + index);
+          return {
+            date: planDate,
+            recipe: {
+              id: "gen_" + generateId(),
+              name: JSON.stringify(plan.menu),
+              estimatedPrice: plan.dailyEstimatedPrice,
+              ingredients: JSON.stringify(plan.ingredients),
+              instructions: JSON.stringify(plan.instructions)
+            }
+          };
+        });
+      } catch (e: any) {
+        lastError = e;
+        console.error(`AI生成リトライ (${retryCount + 1}/${maxRetries + 1}):`, e.message);
+        retryCount++;
+        if (retryCount <= maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2秒待機
+        }
+      }
     }
+
+    throw lastError || new Error("AI献立生成に失敗しました。");
   },
 
   /**
