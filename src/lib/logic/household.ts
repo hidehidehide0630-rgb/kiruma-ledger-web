@@ -104,7 +104,7 @@ export const HouseholdLogic = {
 
     const prompt = `
 あなたはKIRUMA COMPANYの専属シェフ兼、プロの購買マネージャーです。
-「捏造は即解雇」という絶対的なルールの下、${days}日分の昼食メインの献立と買い物リストを作成してください。
+${days}日分の昼食メインの献立と買い物リストを作成してください。
 
 【今回の最優先テーマ】
 - 勃起力の向上・改善（亜鉛、アルギニン、シトルリン、ビタミンEを重視）
@@ -116,15 +116,11 @@ export const HouseholdLogic = {
 2. **食材の効率化**: 主菜で購入した食材を極力使い切るように計画します。
 3. **副菜・汁物（任意）**: 主菜で余った食材がある場合、または極めて低コストで済む場合にのみ、副菜や汁物を追加してください。マストではありません。
 
-【最重要事項：捏造の禁止】
-- **予算内に収めるために在庫リストを捏造することは、システムを破壊する『重大な違反行為』です。**
-- 在庫リスト（${inventoryList}）にない食材を「在庫利用（isFirstPurchase: false / 0円）」にすることは、いかなる理由があっても厳禁です。
-- 予算が足りない場合は、**迷わず、躊躇なく、予算を大幅にオーバーしてでも「新規購入（isFirstPurchase: true）」として価格を計上してください。** 予算オーバーは100%許容されますが、捏造は0.1%も許容されません。
-
-【予算のガイドライン】
-- 今回の目安予算: ${totalBudgetWithBuffer}円。
-- **この金額はあくまで『目安』です。** 超過しても全く問題ありません。正直な買い物リストを作ることがあなたの唯一の任務です。
-- 1週間で3000円程度（1日400-500円）あれば、健康的な食事は十分に可能です。計算を放棄せず、論理的に導き出してください。
+【食材と購入ルール】
+- 在庫リスト: ${inventoryList}
+- 在庫にあるものは「在庫利用（isFirstPurchase: false / 0円）」として計上してください。
+- 在庫にないものは必ず「新規購入（isFirstPurchase: true）」として価格を計上してください。
+- 予算（目安: ${totalBudgetWithBuffer}円）は、超過しても全く問題ありません。正直な買い物リストを作ることがあなたの唯一の任務です。
 
 【食材と単位】
 - 単位: 「鶏むね肉 1枚(約300g)」「卵 1パック(10個)」など、現実の買い物単位で出力してください。
@@ -145,28 +141,8 @@ JSON形式で出力してください。
       throw new Error("AIの応答解析に失敗しました。再試行してください。");
     }
 
-    // --- 🛡️ HARNESS: 捏造検知バリデーション ---
-    console.log("🛡️ HARNESS: Starting inventory validation...");
     const dailyPlans = data.dailyPlans || [];
-    const inventoryNames = inventory.map(i => i.name);
-    const staples = ["塩", "砂糖", "醤油", "味噌", "油", "酢", "酒", "みりん", "米", "水", "マヨネーズ", "ケチャップ", "胡椒", "唐辛子", "ニンニク", "生姜"];
 
-    for (const plan of dailyPlans) {
-      for (const ingredient of plan.ingredients) {
-        if (!ingredient.isFirstPurchase) {
-          const name = ingredient.purchaseUnit;
-          const isStaple = staples.some(s => name.includes(s));
-          const isInInventory = inventoryNames.some(i => name.includes(i));
-          
-          if (!isStaple && !isInInventory) {
-            console.error(`🛡️ HARNESS FAILURE: Hallucinated Inventory Detected -> ${name}`);
-            throw new Error(`AIが在庫を捏造しました（${name}）。在庫リストにない食材を「在庫利用」として計上することは禁止されています。`);
-          }
-        }
-      }
-    }
-    console.log("🛡️ HARNESS: Validation passed. No hallucinations detected.");
-    // ----------------------------------------
 
     const resultMenu: any[] = [];
 
