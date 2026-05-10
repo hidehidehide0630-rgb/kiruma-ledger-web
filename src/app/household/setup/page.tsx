@@ -93,7 +93,7 @@ export default function HouseholdSetupPage() {
                 <span className="text-xl">{rec.categoryId === 11 ? '☕' : '🍲'}</span>
                 <p className="text-gray-800 font-bold">{rec.name}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">今月の残高</p>
                   <p className="text-lg font-black text-gray-900">¥{rec.remainingBudget.toLocaleString()}</p>
@@ -102,6 +102,10 @@ export default function HouseholdSetupPage() {
                   <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">1日推奨額</p>
                   <p className="text-lg font-black text-emerald-600">¥{rec.dailyRecommended.toLocaleString()}</p>
                 </div>
+              </div>
+              <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{days}日間の合計目安</p>
+                <p className="text-base font-black text-pink-600">¥{(rec.dailyRecommended * days).toLocaleString()}</p>
               </div>
             </div>
           ))}
