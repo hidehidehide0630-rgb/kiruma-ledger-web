@@ -1,6 +1,6 @@
-import React from 'react';
-import Link from 'next/link';
+import RecipeViewButton from '@/components/meals/RecipeViewButton';
 import { prisma } from '@/lib/prisma';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,66 +17,85 @@ export default async function MealManagementPage() {
     orderBy: { date: 'asc' }
   });
 
+  // 食材表示用のヘルパー
+  const formatIngredients = (rawIngredients: string) => {
+    if (!rawIngredients) return '材料情報なし';
+    try {
+      const parsed = JSON.parse(rawIngredients);
+      if (Array.isArray(parsed)) {
+        return parsed.map((i: any) => i.name || i.ingredientId).join('、');
+      }
+      return rawIngredients;
+    } catch (e) {
+      // JSONパースに失敗した場合、JSON構造を簡易的に除去して表示を試みる
+      return rawIngredients.replace(/[\[\]\{\}"']|name:|quantity:/g, '').replace(/,/g, '、').trim();
+    }
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in duration-1000">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-4xl font-black text-gray-900 tracking-tighter">Meal Planner</h1>
-          <p className="text-gray-400 font-bold uppercase tracking-widest text-xs mt-1 italic">
-            🍳 献立・食事管理 <span className="mx-2">|</span> AIパーソナルシェフ
+          <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">Meal Planner</h1>
+          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-1 italic opacity-60">
+            🍳 献立・食事管理 <span className="mx-2">|</span> AI Personal Chef
           </p>
         </div>
-        <Link href="/household/setup" className="px-6 py-3 bg-pink-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-pink-100 hover:scale-[1.02] active:scale-95 transition-all">
-          新しい献立を生成
+        <Link href="/household/setup" className="px-8 py-3.5 bg-gray-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all">
+          New Menu
         </Link>
       </div>
 
       {/* 今後の献立リスト */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {mealPlans.length > 0 ? (
           mealPlans.map((plan) => (
-            <div key={plan.id} className="bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 hover:border-pink-200 transition-all group relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-pink-50 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
+            <div key={plan.id} className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-gray-100 hover:border-pink-200 transition-all group relative overflow-hidden flex flex-col">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-pink-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50"></div>
               
-              <div className="relative z-10">
-                <div className="flex justify-between items-start mb-6">
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="flex justify-between items-start mb-8">
                   <div>
-                    <p className="text-[10px] font-black uppercase text-pink-500 tracking-widest mb-1 italic">
-                      {plan.date.toLocaleDateString('ja-JP', { weekday: 'long' })}
-                    </p>
-                    <p className="text-lg font-black text-gray-800 tracking-tighter">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-[10px] font-black uppercase text-pink-500 tracking-widest italic">
+                        {plan.date.toLocaleDateString('ja-JP', { weekday: 'long' })}
+                      </p>
+                    </div>
+                    <p className="text-2xl font-black text-gray-900 tracking-tighter">
                       {plan.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
                     </p>
-                    <span className="inline-block mt-2 px-2 py-0.5 bg-pink-50 text-pink-600 text-[9px] font-black rounded uppercase tracking-tighter border border-pink-100">
-                      がっつりメイン昼食
-                    </span>
+                    <div className="mt-3">
+                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black rounded-lg uppercase tracking-tighter border border-indigo-100">
+                        Vitality Booster
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-3xl">🥩</span>
+                  <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-gray-100 group-hover:rotate-12 transition-transform">
+                    🥩
+                  </div>
                 </div>
 
-                <h3 className="text-xl font-black text-gray-900 mb-4 leading-tight">
+                <h3 className="text-xl font-black text-gray-900 mb-6 leading-tight tracking-tight min-h-[3rem]">
                   {plan.recipe.name}
                 </h3>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-xs font-bold text-gray-400">
-                    <span>Estimated Cost</span>
-                    <span className="text-gray-900 font-black italic">¥{plan.recipe.estimatedPrice.toLocaleString()}</span>
+                <div className="space-y-5 flex-grow">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest">Est. Cost</span>
+                    <span className="text-gray-900 font-black text-lg italic tracking-tighter">¥{plan.recipe.estimatedPrice.toLocaleString()}</span>
                   </div>
                   
-                  {plan.recipe.ingredients && (
-                    <div className="pt-4 border-t border-gray-50">
-                      <p className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-2">Key Ingredients</p>
-                      <p className="text-xs text-gray-500 leading-relaxed truncate">
-                        {String(plan.recipe.ingredients)}
-                      </p>
-                    </div>
-                  )}
+                  <div className="pt-5 border-t border-gray-50">
+                    <p className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-3 italic">Key Ingredients</p>
+                    <p className="text-sm font-bold text-gray-500 leading-relaxed line-clamp-2">
+                      {formatIngredients(plan.recipe.ingredients)}
+                    </p>
+                  </div>
                 </div>
 
-                <button className="w-full mt-8 py-3 rounded-xl bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-widest hover:bg-pink-600 hover:text-white transition-all">
-                  View Recipe Details
-                </button>
+                <div className="mt-8 pt-4">
+                  <RecipeViewButton recipe={plan.recipe} />
+                </div>
               </div>
             </div>
           ))

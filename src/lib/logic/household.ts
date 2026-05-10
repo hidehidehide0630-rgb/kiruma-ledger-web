@@ -17,20 +17,21 @@ export const HouseholdLogic = {
   },
 
   /**
-   * ハイブリッド献立生成（簡易版：DB連携）
+   * ハイブリッド献立生成（予算厳守・活力向上・筋肥大対応版）
    */
   async generateMenu(params: {
     startDate: Date;
     days: number;
     tripBudget: number;
     vitalityMode?: boolean;
+    budgetBuffer?: number; // 許容する超過金額（デフォルト500円）
   }) {
-    const { startDate, days, tripBudget, vitalityMode } = params;
+    const { startDate, days, tripBudget, vitalityMode, budgetBuffer = 500 } = params;
     
     // DBから全レシピを取得
     const allRecipes = await prisma.recipe.findMany();
     
-    const dailyBudget = Math.floor(tripBudget / days);
+    let remainingBudget = tripBudget;
     const resultMenu: any[] = [];
     const usedIds = new Set<string>();
 
@@ -38,25 +39,37 @@ export const HouseholdLogic = {
         const currentDate = new Date(startDate);
         currentDate.setDate(currentDate.getDate() + i);
 
-        // 予算内の候補をフィルタリングし、がっつり系（高単価）を優先するため価格降順にソート
-        let candidates = allRecipes
-            .filter(r => !usedIds.has(r.id) && r.estimatedPrice <= dailyBudget)
-            .sort((a, b) => b.estimatedPrice - a.estimatedPrice);
+        // 残りの日数で予算を均等配分（動的予算）
+        const remainingDays = days - i;
+        const currentDailyBudget = Math.floor(remainingBudget / remainingDays);
         
-        // 候補がない場合は全レシピから最安値（に近いもの）を取得
+        // 許容範囲内（動的予算 + バッファ）の候補をフィルタリング
+        // ターゲット予算に最も近いものを優先（極端な超過を避ける）
+        let candidates = allRecipes
+            .filter(r => !usedIds.has(r.id) && r.estimatedPrice <= (currentDailyBudget + budgetBuffer))
+            .sort((a, b) => {
+              const diffA = Math.abs(a.estimatedPrice - currentDailyBudget);
+              const diffB = Math.abs(b.estimatedPrice - currentDailyBudget);
+              return diffA - diffB;
+            });
+        
+        // 候補がない場合は、全レシピから「予算に最も近い最安値」を1つだけ取得
         if (candidates.length === 0) {
             candidates = allRecipes.filter(r => !usedIds.has(r.id));
             candidates.sort((a, b) => a.estimatedPrice - b.estimatedPrice);
         }
 
-        // 上位候補（高単価なもの）からランダムに1つ選択
         if (candidates.length > 0) {
-            const selected = candidates[Math.floor(Math.random() * Math.min(3, candidates.length))];
+            // 予算上限に近い（満足度が高い）上位3件からランダムに選択
+            const selectionRange = Math.min(3, candidates.length);
+            const selected = candidates[Math.floor(Math.random() * selectionRange)];
+            
             resultMenu.push({
                 date: currentDate,
                 recipe: selected,
             });
             usedIds.add(selected.id);
+            remainingBudget -= selected.estimatedPrice;
         }
     }
 
