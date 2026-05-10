@@ -36,6 +36,12 @@ export const HouseholdLogic = {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-1.5-pro',
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      ],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -70,10 +76,10 @@ export const HouseholdLogic = {
                     items: {
                       type: SchemaType.OBJECT,
                       properties: {
-                        purchaseUnit: { type: SchemaType.STRING, description: "スーパーで買う時の名称（例：人参 1袋3本）" },
-                        usageAmount: { type: SchemaType.STRING, description: "このレシピで使う分量（例：1/2本）" },
-                        unitPrice: { type: SchemaType.INTEGER, description: "販売単位の税込価格（例：198）" },
-                        isFirstPurchase: { type: SchemaType.BOOLEAN, description: "この食材をこの期間中に初めて購入し、レジで支払う日であればtrue" }
+                        purchaseUnit: { type: SchemaType.STRING },
+                        usageAmount: { type: SchemaType.STRING },
+                        unitPrice: { type: SchemaType.INTEGER },
+                        isFirstPurchase: { type: SchemaType.BOOLEAN }
                       },
                       required: ["purchaseUnit", "usageAmount", "unitPrice", "isFirstPurchase"]
                     }
@@ -96,32 +102,27 @@ export const HouseholdLogic = {
 1. **総予算**: 約${tripBudget}円。レジでの支払総額をこの予算内に収めてください。
 2. **販売単位（購入単位）の徹底**: 
    - 買い物リストには「スーパーで実際に売られている単位（例：人参 1袋3本、豚バラ肉 1パック300g）」で記載してください。
-   - レシピで使う分量がその一部（例：人参1/2本）であっても、買い物リストには販売単位（1袋）を記載します。
 3. **完全使い切りパズル**: 
    - 買った食材は、${days}日間の献立内で**必ず全て使い切って**ください。冷蔵庫に端数を残さないでください。
-   - 1週間後に冷蔵庫が空になるのがゴールです。
 4. **献立の構成**: 
    - 毎日、必ず「主菜（Main）」「副菜（Side）」「汁物（Soup）」の3点構成にしてください。
-   - 同じ食材を複数の料理（例：主菜と汁物の両方に玉ねぎを使う）に割り振って、効率よく使い切ってください。
-5. **支払い金額の計算（重要）**:
+5. **支払い金額の計算**:
    - \`unitPrice\` は販売単位の価格です。
    - \`isFirstPurchase\` が \`true\` の場合のみ、その日の \`dailyEstimatedPrice\` に加算されます。
-   - 同じ販売単位（例：同じ人参の袋）を複数日に分けて使う場合、2日目以降のレシピでは \`isFirstPurchase\` を \`false\` にし、価格計上されないようにしてください。
-   - 合計の \`dailyEstimatedPrice\` を足したものが、全体の支払額となります。
+   - 同じ袋・パックを使い回す場合は2回目以降 \`isFirstPurchase\` を \`false\` にし、金額を計上しないでください。
 6. **調理指示**:
-   - 各料理（主菜・副菜・汁物）の簡単な作り方を \`instructions\` に含めてください。
+   - 各料理（主菜・副菜・汁物）の簡潔な作り方を \`instructions\` に含めてください。
 7. **常備品**:
    - 米、基本調味料は 0円としてリストに含めてください。
-${vitalityMode ? '8. **バイタリティモードON**: テストステロンと血管健康を最大化する食材（ニラ、赤身肉、ブロッコリー、アボカド等）を主軸にしてください。' : ''}
+${vitalityMode ? '8. **バイタリティモードON**: テストステロンと血管健康を最大化する食材を主軸にしてください。' : ''}
 
 【出力】
-JSON形式で、各日の menu (main, side, soup), instructions, ingredients の詳細を出力してください。
+JSON形式で出力してください。
 `;
 
     const result = await model.generateContent(prompt);
     let responseText = result.response.text();
     
-    // MarkdownのJSONブロック記法が含まれている場合、それを取り除く
     responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/```\s*$/i, '').trim();
     
     let data;
@@ -129,11 +130,10 @@ JSON形式で、各日の menu (main, side, soup), instructions, ingredients の
       data = JSON.parse(responseText);
     } catch (e) {
       console.error("LLM JSON Parse Error:", e);
-      console.error("Raw response text:", responseText);
-      throw new Error("Failed to generate menu. Invalid JSON.");
+      throw new Error("AIの応答解析に失敗しました。再試行してください。");
     }
 
-    const dailyPlans = data.dailyPlans;
+    const dailyPlans = data.dailyPlans || [];
     const resultMenu: any[] = [];
 
     for (let i = 0; i < dailyPlans.length; i++) {
@@ -143,7 +143,6 @@ JSON形式で、各日の menu (main, side, soup), instructions, ingredients の
 
         const recipeId = "generated_" + generateId();
         
-        // UIでの表示用に名前を構造化
         const structuredName = JSON.stringify(plan.menu);
         const structuredInstructions = JSON.stringify(plan.instructions);
 
@@ -152,14 +151,13 @@ JSON形式で、各日の menu (main, side, soup), instructions, ingredients の
             recipe: {
                 id: recipeId,
                 name: structuredName,
-                estimatedPrice: plan.dailyEstimatedPrice,
+                estimatedPrice: Math.floor(Number(plan.dailyEstimatedPrice) || 0),
                 ingredients: JSON.stringify(plan.ingredients),
                 instructions: structuredInstructions,
                 isFavorite: false
             },
         });
     }
-
 
     return resultMenu;
   },

@@ -62,15 +62,17 @@ export default function HouseholdSetupPage() {
         body: JSON.stringify({ days, budget, startDate: new Date() })
       });
       
-      if (response.ok) {
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
         alert('献立が生成されました！');
         router.push('/household/meals');
       } else {
-        alert('生成に失敗しました。');
+        alert(`生成に失敗しました: ${data.error || '不明なエラー'}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('エラーが発生しました。');
+      alert(`エラーが発生しました: ${error.message || '通信エラー'}`);
     } finally {
       setIsGenerating(false);
     }

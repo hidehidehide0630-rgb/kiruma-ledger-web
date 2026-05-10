@@ -25,31 +25,47 @@ export async function POST(req: NextRequest) {
     });
 
     // 3. データベースへの保存
-    // トランザクションで保存
     for (const item of generatedMenu) {
-        // 先に生成されたレシピをDBに保存する
-        await prisma.recipe.create({
-            data: {
-                id: item.recipe.id,
-                name: item.recipe.name,
-                estimatedPrice: item.recipe.estimatedPrice,
-                ingredients: item.recipe.ingredients,
-                instructions: item.recipe.instructions,
-                isFavorite: false
-            }
-        });
+        try {
+            // レシピの保存（IDが衝突した場合は更新）
+            await prisma.recipe.upsert({
+                where: { id: item.recipe.id },
+                update: {
+                    name: item.recipe.name,
+                    estimatedPrice: item.recipe.estimatedPrice,
+                    ingredients: item.recipe.ingredients,
+                    instructions: item.recipe.instructions,
+                },
+                create: {
+                    id: item.recipe.id,
+                    name: item.recipe.name,
+                    estimatedPrice: item.recipe.estimatedPrice,
+                    ingredients: item.recipe.ingredients,
+                    instructions: item.recipe.instructions,
+                    isFavorite: false
+                }
+            });
 
-        await prisma.mealPlan.create({
-            data: {
-                date: item.date,
-                recipeId: item.recipe.id
-            }
-        });
+            await prisma.mealPlan.create({
+                data: {
+                    date: item.date,
+                    recipeId: item.recipe.id
+                }
+            });
+        } catch (dbError) {
+            console.error('Database save error for item:', item.recipe.id, dbError);
+            throw new Error(`データベースの保存中にエラーが発生しました: ${item.recipe.id}`);
+        }
     }
 
     return NextResponse.json({ success: true, count: generatedMenu.length });
   } catch (error: any) {
-    console.error('Generation API error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('--- Generation API error details ---');
+    console.error('Error message:', error.message);
+    console.error('Stack trace:', error.stack);
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message || '予期せぬエラーが発生しました。' 
+    }, { status: 500 });
   }
 }
