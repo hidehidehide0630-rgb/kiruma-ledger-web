@@ -144,23 +144,34 @@ ${inventoryList}
     const result = await model.generateContent([systemPrompt, userPrompt]);
     let responseText = result.response.text();
     
-    responseText = responseText.replace(/```json\n?|\n?```/g, '').trim();
-    const parsedData = JSON.parse(responseText);
+    try {
+      // JSON部分のみを抽出（```json ... ``` や前後の雑多なテキストを排除）
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("No JSON found in response");
+      }
+      const cleanJson = jsonMatch[0];
+      const parsedData = JSON.parse(cleanJson);
 
-    return parsedData.dailyPlans.map((plan: any, index: number) => {
-      const planDate = new Date(startDate);
-      planDate.setDate(startDate.getDate() + index);
-      return {
-        date: planDate,
-        recipe: {
-          id: "gen_" + generateId(),
-          name: JSON.stringify(plan.menu),
-          estimatedPrice: plan.dailyEstimatedPrice,
-          ingredients: JSON.stringify(plan.ingredients),
-          instructions: JSON.stringify(plan.instructions)
-        }
-      };
-    });
+      return parsedData.dailyPlans.map((plan: any, index: number) => {
+        const planDate = new Date(startDate);
+        planDate.setDate(startDate.getDate() + index);
+        return {
+          date: planDate,
+          recipe: {
+            id: "gen_" + generateId(),
+            name: JSON.stringify(plan.menu),
+            estimatedPrice: plan.dailyEstimatedPrice,
+            ingredients: JSON.stringify(plan.ingredients),
+            instructions: JSON.stringify(plan.instructions)
+          }
+        };
+      });
+    } catch (e) {
+      console.error("AI Response Parse Error:", e);
+      console.error("Raw Response Text:", responseText);
+      throw e;
+    }
   },
 
   /**
