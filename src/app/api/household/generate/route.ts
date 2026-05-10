@@ -6,10 +6,34 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { days, budget, startDate } = await req.json();
+    const { days, budget, startDate, inventoryText } = await req.json();
 
-    // 1. 既存の（未実施の）献立を一旦クリア（上書き前提）
-    // 実際には特定期間のみ削除するなど調整が必要
+    // 1. 在庫情報の更新（入力がある場合）
+    if (inventoryText) {
+        const lines = inventoryText.split('\n').filter((l: string) => l.trim() !== '');
+        // 社長の最新の冷蔵庫状況を反映するため、一旦クリアして再登録
+        await prisma.inventory.deleteMany({});
+        
+        for (const line of lines) {
+            const [name, quantityPart] = line.split(/[:：]/).map((s: string) => s.trim());
+            if (name) {
+                // 数量部分から数値と単位を抽出
+                const quantityMatch = (quantityPart || '').match(/([0-9.]+)?(.*)/);
+                const quantity = quantityMatch ? parseFloat(quantityMatch[1]) || 0 : 0;
+                const unit = quantityMatch ? quantityMatch[2].trim() : '';
+
+                await prisma.inventory.create({
+                    data: {
+                        name,
+                        quantity,
+                        unit: unit || '個' // デフォルト単位
+                    }
+                });
+            }
+        }
+    }
+
+    // 2. 既存の（未実施の）献立を一旦クリア（上書き前提）
     await prisma.mealPlan.deleteMany({
         where: {
             date: { gte: new Date(startDate) }

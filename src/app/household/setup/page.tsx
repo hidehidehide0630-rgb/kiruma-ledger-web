@@ -19,6 +19,7 @@ export default function HouseholdSetupPage() {
   const router = useRouter();
   const [days, setDays] = useState(7);
   const [budget, setBudget] = useState(15000);
+  const [inventoryText, setInventoryText] = useState('');
   const [recs, setRecs] = useState<CategoryRec[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingRec, setIsLoadingRec] = useState(true);
@@ -59,7 +60,7 @@ export default function HouseholdSetupPage() {
       const response = await fetch('/api/household/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days, budget, startDate: new Date() })
+        body: JSON.stringify({ days, budget, startDate: new Date(), inventoryText })
       });
       
       const text = await response.text();
@@ -129,6 +130,20 @@ export default function HouseholdSetupPage() {
             ¥{budget.toLocaleString()}
           </p>
           <p className="mt-3 text-xs text-gray-400">※過去の支出ペースと推奨額から自動算出されています。一切の入力は不要です。</p>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block text-sm font-bold text-gray-700 flex items-center gap-2">
+            <span>🧊 冷蔵庫の在庫を入力（使い切り優先）</span>
+            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-black">MUST USE</span>
+          </label>
+          <textarea
+            value={inventoryText}
+            onChange={(e) => setInventoryText(e.target.value)}
+            placeholder={"例:\n卵: 2個\nキャベツ: 1/4玉\n鶏むね肉: 200g"}
+            className="w-full h-32 p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-sm font-medium placeholder:text-gray-300"
+          />
+          <p className="text-[10px] text-gray-400">※入力された食材は優先的に献立に組み込まれ、買い物予算からは除外されます。</p>
         </div>
 
         <div className="pt-4">
