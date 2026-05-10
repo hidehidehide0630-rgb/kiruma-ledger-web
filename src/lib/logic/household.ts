@@ -38,16 +38,18 @@ export const HouseholdLogic = {
         const currentDate = new Date(startDate);
         currentDate.setDate(currentDate.getDate() + i);
 
-        // 予算内の候補をフィルタリング
-        let candidates = allRecipes.filter(r => !usedIds.has(r.id) && r.estimatedPrice <= dailyBudget);
+        // 予算内の候補をフィルタリングし、がっつり系（高単価）を優先するため価格降順にソート
+        let candidates = allRecipes
+            .filter(r => !usedIds.has(r.id) && r.estimatedPrice <= dailyBudget)
+            .sort((a, b) => b.estimatedPrice - a.estimatedPrice);
         
-        // 候補がない場合は全レシピから最安値を取得
+        // 候補がない場合は全レシピから最安値（に近いもの）を取得
         if (candidates.length === 0) {
             candidates = allRecipes.filter(r => !usedIds.has(r.id));
             candidates.sort((a, b) => a.estimatedPrice - b.estimatedPrice);
         }
 
-        // ランダムに1つ選択
+        // 上位候補（高単価なもの）からランダムに1つ選択
         if (candidates.length > 0) {
             const selected = candidates[Math.floor(Math.random() * Math.min(3, candidates.length))];
             resultMenu.push({

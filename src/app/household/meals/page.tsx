@@ -47,8 +47,11 @@ export default async function MealManagementPage() {
                     <p className="text-lg font-black text-gray-800 tracking-tighter">
                       {plan.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
                     </p>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-pink-50 text-pink-600 text-[9px] font-black rounded uppercase tracking-tighter border border-pink-100">
+                      がっつりメイン昼食
+                    </span>
                   </div>
-                  <span className="text-2xl">🍱</span>
+                  <span className="text-3xl">🥩</span>
                 </div>
 
                 <h3 className="text-xl font-black text-gray-900 mb-4 leading-tight">

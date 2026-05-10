@@ -64,7 +64,7 @@ export default function HouseholdSetupPage() {
       
       if (response.ok) {
         alert('献立が生成されました！');
-        router.push('/household');
+        router.push('/household/meals');
       } else {
         alert('生成に失敗しました。');
       }
