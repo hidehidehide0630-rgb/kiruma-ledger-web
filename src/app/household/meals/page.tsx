@@ -17,6 +17,45 @@ export default async function MealManagementPage() {
     orderBy: { date: 'asc' }
   });
 
+  // 買い物リストと合計金額の集計
+  let totalCost = 0;
+  const shoppingListMap = new Map<string, string[]>();
+
+  mealPlans.forEach(plan => {
+    totalCost += plan.recipe.estimatedPrice;
+    
+    if (plan.recipe.ingredients) {
+      try {
+        const parsed = JSON.parse(plan.recipe.ingredients);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((i: any) => {
+            const name = i.name || i.ingredientId || '不明な材料';
+            const qty = i.quantity || '';
+            if (!shoppingListMap.has(name)) {
+              shoppingListMap.set(name, []);
+            }
+            if (qty) shoppingListMap.get(name)?.push(qty);
+          });
+        }
+      } catch (e) {
+        // JSONパースに失敗した場合はカンマ等で分割
+        const items = plan.recipe.ingredients.split(/[、,]/).map(s => s.trim()).filter(Boolean);
+        items.forEach(item => {
+          if (!shoppingListMap.has(item)) {
+            shoppingListMap.set(item, []);
+          }
+        });
+      }
+    }
+  });
+
+  const shoppingList = Array.from(shoppingListMap.entries()).map(([name, quantities]) => {
+    return {
+      name,
+      quantity: quantities.length > 0 ? quantities.join(' + ') : '適量'
+    };
+  });
+
   // 食材表示用のヘルパー
   const formatIngredients = (rawIngredients: string) => {
     if (!rawIngredients) return '材料情報なし';
@@ -45,6 +84,36 @@ export default async function MealManagementPage() {
           New Menu
         </Link>
       </div>
+
+      {/* 買い物リスト＆合計金額サマリー */}
+      {mealPlans.length > 0 && (
+        <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-gray-100 flex flex-col md:flex-row gap-8 items-start">
+          <div className="md:w-1/3 w-full bg-gray-50 p-6 rounded-[2rem] border border-gray-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50"></div>
+            <div className="relative z-10">
+              <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase mb-2">Total Budget</h3>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">For 14 Days</p>
+              <p className="text-5xl font-black text-pink-600 tracking-tighter italic">
+                ¥{totalCost.toLocaleString()}
+              </p>
+            </div>
+          </div>
+          
+          <div className="md:w-2/3 w-full">
+            <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase mb-6 flex items-center gap-2">
+              <span className="text-2xl">🛒</span> Shopping List
+            </h3>
+            <div className="flex flex-wrap gap-3 max-h-48 overflow-y-auto pr-2">
+              {shoppingList.map((item, idx) => (
+                <div key={idx} className="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 hover:border-pink-300 transition-colors">
+                  <span className="font-bold text-gray-700">{item.name}</span>
+                  <span className="text-[10px] font-black text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">{item.quantity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 今後の献立リスト */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
