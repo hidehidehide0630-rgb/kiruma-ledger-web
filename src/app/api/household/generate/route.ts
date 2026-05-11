@@ -33,10 +33,12 @@ export async function POST(req: NextRequest) {
         }
     }
 
+    const start = new Date(startDate);
+
     // 2. 既存の（未実施の）献立を一旦クリア（上書き前提）
     await prisma.mealPlan.deleteMany({
         where: {
-            date: { gte: new Date(startDate) }
+            date: { gte: start }
         }
     });
 
@@ -44,14 +46,14 @@ export async function POST(req: NextRequest) {
     const { dailyPlans, weeklyBatchMissions } = await HouseholdLogic.generateMenu({
       days: days || 7,
       tripBudget: budget || 15000,
-      startDate: new Date(startDate),
+      startDate: start,
       vitalityMode: true // デフォルトON
     });
 
     // 3. データベースへの保存（ミッションのクリア）
     await prisma.batchMission.deleteMany({
         where: {
-            date: { gte: new Date(startDate) }
+            date: { gte: start }
         }
     });
 
@@ -90,8 +92,8 @@ export async function POST(req: NextRequest) {
 
     // ミッションの保存
     for (const mission of weeklyBatchMissions) {
-        const missionDate = new Date(startDate);
-        missionDate.setDate(startDate.getDate() + (mission.day - 1));
+        const missionDate = new Date(start);
+        missionDate.setDate(start.getDate() + (mission.day - 1));
         await prisma.batchMission.create({
             data: {
                 day: mission.day,
