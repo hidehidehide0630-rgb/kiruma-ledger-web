@@ -184,6 +184,7 @@ export default function HouseholdSetupPage() {
           <p className="mt-3 text-xs text-gray-400">※過去の支出ペースから自動算出。必要に応じて微調整可能です。</p>
         </div>
 
+        <div className="space-y-3">
           <div className="flex justify-between items-end mb-2">
             <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
               <span>🧊 冷蔵庫の在庫を入力（使い切り優先）</span>
