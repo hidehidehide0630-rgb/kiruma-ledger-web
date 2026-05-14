@@ -27,6 +27,7 @@ export default function HouseholdSetupPage() {
   const [recs, setRecs] = useState<CategoryRec[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingRec, setIsLoadingRec] = useState(true);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
 
   // 予算推薦データの取得
   useEffect(() => {
@@ -60,6 +61,25 @@ export default function HouseholdSetupPage() {
       setBudget(totalDaily * days);
     }
   }, [days, recs]);
+
+  const handleLoadInventory = async () => {
+    setIsLoadingInventory(true);
+    try {
+      const response = await fetch('/api/household/inventory');
+      if (response.ok) {
+        const items = await response.json();
+        const text = items
+          .map((i: any) => `${i.name}: ${i.quantity}${i.unit || ''}`)
+          .join('\n');
+        setInventoryText(text);
+      }
+    } catch (error) {
+      console.error('Failed to load inventory:', error);
+      alert('在庫の読み込みに失敗しました。');
+    } finally {
+      setIsLoadingInventory(false);
+    }
+  };
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -164,11 +184,19 @@ export default function HouseholdSetupPage() {
           <p className="mt-3 text-xs text-gray-400">※過去の支出ペースから自動算出。必要に応じて微調整可能です。</p>
         </div>
 
-        <div className="space-y-3">
-          <label className="block text-sm font-bold text-gray-700 flex items-center gap-2">
-            <span>🧊 冷蔵庫の在庫を入力（使い切り優先）</span>
-            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-black">MUST USE</span>
-          </label>
+          <div className="flex justify-between items-end mb-2">
+            <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+              <span>🧊 冷蔵庫の在庫を入力（使い切り優先）</span>
+              <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-black">MUST USE</span>
+            </label>
+            <button
+              onClick={handleLoadInventory}
+              disabled={isLoadingInventory}
+              className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 disabled:opacity-50 flex items-center gap-1"
+            >
+              {isLoadingInventory ? 'Loading...' : '🔄 冷蔵庫から読み込む'}
+            </button>
+          </div>
           <textarea
             value={inventoryText}
             onChange={(e) => setInventoryText(e.target.value)}
