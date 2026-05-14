@@ -6,13 +6,14 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { days, budget, startDate, inventoryText } = await req.json();
+    const { days, budget, startDate, inventoryText, includeFavorites } = await req.json();
 
-    // 1. 在庫情報の更新（入力がある場合）
-    if (inventoryText) {
+    // 1. 在庫情報の更新（画面의 入力内容でDBを完全に同期する）
+    // 社長の最新の冷蔵庫状況を反映するため、一旦クリア
+    await prisma.inventory.deleteMany({});
+    
+    if (inventoryText && inventoryText.trim() !== '') {
         const lines = inventoryText.split('\n').filter((l: string) => l.trim() !== '');
-        // 社長の最新の冷蔵庫状況を反映するため、一旦クリアして再登録
-        await prisma.inventory.deleteMany({});
         
         for (const line of lines) {
             const [name, quantityPart] = line.split(/[:：]/).map((s: string) => s.trim());
@@ -34,20 +35,26 @@ export async function POST(req: NextRequest) {
     }
 
     const start = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // 2. 既存の（未実施の）献立を一旦クリア（上書き前提）
+    // daysが未指定の場合は、今週の日曜日までの日数を計算
+    const calculatedDays = days || (7 - ((today.getDay() + 6) % 7));
+
+    // 2. 既存の（未実施の）献立を一旦クリア（今日以降をすべて削除して整合性を保つ）
     await prisma.mealPlan.deleteMany({
         where: {
-            date: { gte: start }
+            date: { gte: today }
         }
     });
 
     // 2. 献立生成ロジックの実行
     const { dailyPlans, weeklyBatchMissions } = await HouseholdLogic.generateMenu({
-      days: days || 7,
+      days: calculatedDays,
       tripBudget: budget || 15000,
       startDate: start,
-      vitalityMode: true // デフォルトON
+      vitalityMode: true, // デフォルトON
+      includeFavorites: includeFavorites || false
     });
 
     // 3. データベースへの保存（ミッションのクリア）

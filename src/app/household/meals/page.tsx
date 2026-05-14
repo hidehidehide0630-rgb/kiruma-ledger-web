@@ -4,13 +4,19 @@ import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import SeasonalIngredientList from '@/components/meals/SeasonalIngredientList';
 import QuickInventoryAdd from '@/components/meals/QuickInventoryAdd';
+import FavoriteButton from '@/components/meals/FavoriteButton';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MealManagementPage() {
   const today = new Date();
-  const weekEnd = new Date();
-  weekEnd.setDate(today.getDate() + 14); // 2週間分表示
+  today.setHours(0, 0, 0, 0);
+
+  // 表示範囲を「今週の日曜日」までに設定
+  const weekEnd = new Date(today);
+  const daysUntilSunday = 7 - ((today.getDay() + 6) % 7);
+  weekEnd.setDate(today.getDate() + (daysUntilSunday - 1));
+  weekEnd.setHours(23, 59, 59, 999);
 
   const mealPlans = await prisma.mealPlan.findMany({
     where: {
@@ -285,8 +291,16 @@ export default async function MealManagementPage() {
                       {plan.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-gray-100 group-hover:rotate-12 transition-transform">
-                    🍱
+                  <div className="flex flex-col gap-2 items-center">
+                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-gray-100 group-hover:rotate-12 transition-transform">
+                      🍱
+                    </div>
+                    {plan.recipe && (
+                      <FavoriteButton 
+                        recipeId={plan.recipe.id} 
+                        initialIsFavorite={plan.recipe.isFavorite} 
+                      />
+                    )}
                   </div>
                 </div>
 

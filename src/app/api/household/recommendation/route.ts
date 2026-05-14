@@ -12,7 +12,13 @@ export async function GET(request: NextRequest) {
 
     // 今月の日数
     const lastDayOfMonth = new Date(year, month, 0).getDate();
-    const daysRemaining = lastDayOfMonth - day + 1;
+    const daysRemainingInMonth = lastDayOfMonth - day + 1;
+
+    // 今週の日曜日（週の終わり）までの日数 (月-日サイクル)
+    // getDay(): 0(日), 1(月), ..., 6(土)
+    // 月=7, 火=6, ..., 日=1 となるように計算
+    const dayOfWeek = now.getDay();
+    const daysUntilSunday = 7 - ((dayOfWeek + 6) % 7);
 
     // カテゴリ定義
     // 11: 朝食・昼食
@@ -46,7 +52,7 @@ export async function GET(request: NextRequest) {
       const spentAmount = spendings.reduce((sum, s) => sum + s.amount, 0);
 
       const remaining = Math.max(0, budgetAmount - spentAmount);
-      const daily = daysRemaining > 0 ? Math.floor(remaining / daysRemaining) : 0;
+      const daily = daysRemainingInMonth > 0 ? Math.floor(remaining / daysRemainingInMonth) : 0;
 
       return {
         categoryId: cat.id,
@@ -54,14 +60,16 @@ export async function GET(request: NextRequest) {
         totalBudget: budgetAmount,
         totalSpent: spentAmount,
         remainingBudget: remaining,
-        dailyRecommended: daily
+        dailyRecommended: daily,
+        weeklyRecommended: daily * daysUntilSunday
       };
     }));
 
     return NextResponse.json({
       year,
       month,
-      daysRemaining,
+      daysRemainingInMonth,
+      daysUntilSunday,
       recommendations
     });
   } catch (error: any) {

@@ -29,8 +29,9 @@ export const HouseholdLogic = {
     tripBudget: number;
     vitalityMode?: boolean;
     budgetBuffer?: number;
+    includeFavorites?: boolean;
   }) {
-    const { startDate, days, tripBudget, vitalityMode } = params;
+    const { startDate, days, tripBudget, vitalityMode, includeFavorites } = params;
 
     // マスター食材リストを取得
     const masters = await prisma.ingredientMaster.findMany();
@@ -38,6 +39,25 @@ export const HouseholdLogic = {
     const mastersPrompt = masters.map(m => 
       `- ${m.name} (${m.category}, 旬:${m.seasonalMonths.join(',')}月): ${m.vitalityBenefit}, 基準価格:¥${m.basePrice}/${m.unit}, 活力食材:${m.isVitality}`
     ).join('\n');
+
+    // お気に入りレシピを取得
+    let favoritesPrompt = "なし";
+    if (includeFavorites) {
+      const favorites = await prisma.recipe.findMany({
+        where: { isFavorite: true },
+        take: 10 // あまり多すぎるとコンテキストを圧迫するので制限
+      });
+      if (favorites.length > 0) {
+        favoritesPrompt = favorites.map(f => {
+          try {
+            const nameObj = JSON.parse(f.name);
+            return `- ${nameObj.main} (副菜: ${nameObj.side}, スープ: ${nameObj.soup})`;
+          } catch (e) {
+            return `- ${f.name}`;
+          }
+        }).join('\n');
+      }
+    }
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     const model = genAI.getGenerativeModel({ 
@@ -99,7 +119,7 @@ export const HouseholdLogic = {
                         purchaseUnit: { type: SchemaType.STRING, description: "スーパーの販売単位。マスターデータの名称を優先せよ。" },
                         usageAmount: { type: SchemaType.STRING, description: "その日の使用量。必ず単位(g, 個, 本など)を付けること" },
                         unitPrice: { type: SchemaType.INTEGER, description: "販売単位（パック）あたりの価格。マスターデータを参照せよ。" },
-                        proRatedPrice: { type: SchemaType.INTEGER, description: "その日の使用量に相当する価格。1円単位で正確に計算せよ。" },
+                        proRatedPrice: { type: SchemaType.INTEGER, description: "その日の使用量に相当する価格。1円単位 for 正確に計算せよ。" },
                         isFirstPurchase: { type: SchemaType.BOOLEAN, description: "今回の買い物リストに載せるべき『購入品（またはその使い回し）』ならtrue。DBの在庫リストにあるものを利用する場合のみfalse。" }
                       },
                       required: ["purchaseUnit", "usageAmount", "unitPrice", "proRatedPrice", "isFirstPurchase"]
@@ -127,43 +147,43 @@ export const HouseholdLogic = {
 あなたは「午後の爆発的な活力（剛起）」と「筋力強化（バキバキ）」を専門とする、超攻撃的なスポーツ管理栄養士です。
 
 # Goal
-ユーザーが「バキバキの肉体」と「最強の血流（勃起力）」を手に入れるための、戦略的・自律的な昼飯メニュー（7日間）を生成してください。
+ユーザーが「バキバキの肉体」と「最強の血流（勃起力）」を手に入れるための、戦略的・自律的な昼飯メニューを、**必ず指定された日数（${days}日間）ちょうど**生成してください。
+1日でも多く、あるいは少なく生成することは許されません。${days}日間分のデータのみを dailyPlans に含めてください。
 
 # 季節性活力戦略（Seasonal Vitality）
 1. **[旬の優先]**: 以下の【マスター食材リスト】から、現在の月（${currentMonth}月）が旬に含まれる食材を最優先で採用せよ。旬の食材は安価で栄養価が最大化されている。
 2. **[活力食材の義務化]**: 'isVitality: true' の食材を主菜に必ず組み込むこと。
 
+# お気に入りレシピの優先（User Favorites）
+以下の【お気に入りレシピ】に含まれるメニューがある場合、ユーザーの好みに合致しているため、積極的に再採用（または類似の構成を採用）せよ。
+ただし、現在の在庫状況や予算、肉魚比率のバランスが崩れる場合は新規メニューを優先して良い。
+【お気に入りレシピ】:
+${favoritesPrompt}
+
 # 週次バランス（Weekly Logistics）
-1. **[肉魚比率 4:3]**: 週7日のうち、主菜は「肉4日：魚3日」の黄金比率を厳守せよ。
+1. **[肉魚比率の動的調整]**: 
+   - 7日間の場合は「肉4日：魚3日」を厳守せよ。
+   - 7日未満の場合は、その比率に近いバランス（例：4日の場合は肉2:魚2、3日の場合は肉2:魚1など）で構成せよ。
 2. **[作り置きミッション (Batch Cooking)]**: 
-   - 副菜は毎日作らず、Day 1（月〜木分）とDay 5（金〜日分）の2回に分けて「まとめて作る（Batch Mission）」ロジックで構成せよ。
-   - 副菜の食材は、主菜で買った食材の「余り（端数）」のみで完結させること。副菜のために新規食材を買うことは原則禁止（調味料は除く）。
+   - 副菜は毎日作らず、「まとめて作る（Batch Mission）」ロジックで構成せよ。
+   - 生成日数が1〜4日の場合は、Day 1に1回のみまとめて作る。
+   - 生成日数が5日以上の場合は、Day 1とDay 5（または適切な間隔）の2回に分けて作る。
+   - 副菜の食材は、主菜で買った食材の「余り（端数）」のみで完結させること。
 
 # 調理・購買ロジック（社長命令）
 1. **[成人男性1人前]**: すべてのレシピは成人男性1人が満足できる分量で構成せよ。
 2. **[按分価格の計算]**: 'dailyEstimatedPrice' は、その日に「食べた分だけ」のコストを算出せよ。
-   例：¥300の肉300gトレイを買い、今日150g使うなら proRatedPrice: 150 とし、dailyEstimatedPriceに加算する。
 3. **[在庫の捏造厳禁・isFirstPurchaseの厳守]**: 
    - 'isFirstPurchase: false' (在庫利用) を指定できるのは、以下の【現在の在庫状況】にリストされている食材のみです。
-   - 今回の献立プランの中で1日目に買ったものを2日目に使う場合、それは「在庫」ではなく「今回の購入品」の使い回しです。
-   - 今回のプランで新しく買う食材（およびその使い回し）は、登場する【全日程】において必ず 'isFirstPurchase: true' としてください。
+   - 今回の献立プランの中で新しく買う食材（およびその使い回し）は、登場する【全日程】において必ず 'isFirstPurchase: true' としてください。
 4. **[炭水化物のコスト計算除外]**: お米（もち麦入り）などの主食（炭水化物）は、レシピには含めるが、'unitPrice' および 'proRatedPrice' は必ず 0 として計算せよ。
-
-# 調理手順の記述ルール（Recipe Standard）
-1. **[構造化]**: \`instructions.main\` の冒頭2行には、必ず「剛起・バキバキの根拠（栄養学的メリット）」を記述せよ。
-2. **[番号付き手順]**: 手順は「1.」「2.」のように番号を振り、一般的なレシピアプリのように工程が明確に分かるようにせよ。
-3. **[調味料の明記]**: 使用する調味料の具体名と投入タイミングを必ず含めること。
-
-【マスター食材リスト（${currentMonth}月基準）】
-${mastersPrompt}
-
-【現在の在庫状況（既存のストック）】
-${inventoryList}
 `;
 
-    const userPrompt = `${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達計画を作成してください。
+    const userPrompt = `
+${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達計画を作成してください。
+これは週の途中からの計画、あるいは短期的な計画です。
 予算は合計¥${tripBudget}円です。
-主菜の肉魚比率を4:3にし、旬の食材を活用し、週2回の作り置きミッションで副菜を効率化してください。`;
+肉魚のバランスを考慮し、旬の食材を活用し、作り置きミッションで副菜を効率化してください。`;
 
     let retryCount = 0;
     const maxRetries = 2;
@@ -219,6 +239,7 @@ ${inventoryList}
 
     throw lastError || new Error("AI献立生成に失敗しました。");
   },
+
 
   /**
    * 買い物リストの合計金額を計算

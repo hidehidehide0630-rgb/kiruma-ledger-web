@@ -9,10 +9,12 @@ interface CategoryRec {
   name: string;
   remainingBudget: number;
   dailyRecommended: number;
+  weeklyRecommended: number;
 }
 
 interface RecommendationResponse {
-  daysRemaining: number;
+  daysRemainingInMonth: number;
+  daysUntilSunday: number;
   recommendations: CategoryRec[];
 }
 
@@ -21,6 +23,7 @@ export default function HouseholdSetupPage() {
   const [days, setDays] = useState(7);
   const [budget, setBudget] = useState(15000);
   const [inventoryText, setInventoryText] = useState('');
+  const [includeFavorites, setIncludeFavorites] = useState(true);
   const [recs, setRecs] = useState<CategoryRec[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingRec, setIsLoadingRec] = useState(true);
@@ -34,9 +37,12 @@ export default function HouseholdSetupPage() {
           const data: RecommendationResponse = await response.json();
           setRecs(data.recommendations);
           
-          // 初回の推奨値をセット (全カテゴリの合計)
-          const totalDaily = data.recommendations.reduce((sum, r) => sum + r.dailyRecommended, 0);
-          setBudget(totalDaily * days);
+          // 今週の日曜日までの日数をデフォルトにセット
+          setDays(data.daysUntilSunday);
+          
+          // 初回の推奨値をセット (全カテゴリの週間合計)
+          const totalWeekly = data.recommendations.reduce((sum, r) => sum + r.weeklyRecommended, 0);
+          setBudget(totalWeekly);
         }
       } catch (error) {
         console.error('Failed to fetch recommendation:', error);
@@ -61,7 +67,7 @@ export default function HouseholdSetupPage() {
       const response = await fetch('/api/household/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days, budget, startDate: new Date(), inventoryText })
+        body: JSON.stringify({ days, budget, startDate: new Date(), inventoryText, includeFavorites })
       });
       
       const text = await response.text();
@@ -94,7 +100,23 @@ export default function HouseholdSetupPage() {
     <div className="max-w-2xl mx-auto space-y-8 py-8">
       <div>
         <h1 className="text-3xl font-extrabold text-gray-900 mb-2">献立生成セットアップ</h1>
-        <p className="text-gray-500 text-lg">AIとデータベースが、あなたに最適な1週間の献立をご提案します。</p>
+        <p className="text-gray-500 text-lg">AIとデータベースが、あなたに最適な献立をご提案します。</p>
+      </div>
+
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6 items-center">
+        <div className="flex-1">
+          <label className="block text-sm font-bold text-gray-700 mb-2">生成する日数</label>
+          <div className="flex items-center gap-4">
+            <input 
+              type="range" min="1" max="14" 
+              value={days} 
+              onChange={(e) => setDays(parseInt(e.target.value))}
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pink-600"
+            />
+            <span className="text-2xl font-black text-gray-900 w-12">{days}<span className="text-sm">日分</span></span>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-widest">※デフォルトで今週の日曜日までが設定されています</p>
+        </div>
       </div>
 
       {recs.length > 0 && (
@@ -116,7 +138,7 @@ export default function HouseholdSetupPage() {
                 </div>
               </div>
               <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{days}日間の合計目安</p>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">今週（残り{days}日）の目安</p>
                 <p className="text-base font-black text-pink-600">¥{(rec.dailyRecommended * days).toLocaleString()}</p>
               </div>
             </div>
@@ -129,11 +151,17 @@ export default function HouseholdSetupPage() {
 
       <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-xl space-y-6">
         <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
-          <p className="text-sm font-bold text-gray-500 mb-2">AIが自動計算した今週（{days}日間）の推奨予算</p>
-          <p className="text-4xl font-black text-emerald-600 tracking-tighter italic">
-            ¥{budget.toLocaleString()}
-          </p>
-          <p className="mt-3 text-xs text-gray-400">※過去の支出ペースと推奨額から自動算出されています。一切の入力は不要です。</p>
+          <p className="text-sm font-bold text-gray-500 mb-2">AIが自動計算した今週（残り{days}日間）の推奨予算</p>
+          <div className="flex items-center justify-center gap-3">
+            <input 
+              type="number"
+              value={budget}
+              onChange={(e) => setBudget(parseInt(e.target.value) || 0)}
+              className="text-4xl font-black text-emerald-600 tracking-tighter italic bg-transparent border-none focus:ring-0 w-40 text-right"
+            />
+            <span className="text-2xl font-black text-emerald-600 tracking-tighter italic">円</span>
+          </div>
+          <p className="mt-3 text-xs text-gray-400">※過去の支出ペースから自動算出。必要に応じて微調整可能です。</p>
         </div>
 
         <div className="space-y-3">
@@ -148,6 +176,20 @@ export default function HouseholdSetupPage() {
             className="w-full h-32 p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-sm font-medium placeholder:text-gray-300"
           />
           <p className="text-[10px] text-gray-400">※入力された食材は優先的に献立に組み込まれ、買い物予算からは除外されます。</p>
+        </div>
+
+        <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
+          <input
+            type="checkbox"
+            id="includeFavorites"
+            checked={includeFavorites}
+            onChange={(e) => setIncludeFavorites(e.target.checked)}
+            className="w-5 h-5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
+          />
+          <label htmlFor="includeFavorites" className="text-sm font-bold text-amber-900 cursor-pointer">
+            お気に入りレシピを優先的に再利用する
+            <span className="block text-[10px] text-amber-700 font-medium mt-0.5">※過去に★をつけた献立から、予算と栄養バランスに合うものをAIが選びます。</span>
+          </label>
         </div>
 
         <div className="pt-4">
