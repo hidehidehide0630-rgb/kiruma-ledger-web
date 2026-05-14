@@ -5,6 +5,7 @@ import Link from 'next/link';
 import SeasonalIngredientList from '@/components/meals/SeasonalIngredientList';
 import QuickInventoryAdd from '@/components/meals/QuickInventoryAdd';
 import FavoriteButton from '@/components/meals/FavoriteButton';
+import CopyShoppingListButton from '@/components/meals/CopyShoppingListButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,7 +159,10 @@ export default async function MealManagementPage() {
               <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase flex items-center gap-2">
                 <span className="text-2xl">🛒</span> Shopping List
               </h3>
-              <ConfirmPurchaseButton shoppingItems={shoppingList} />
+              <div className="flex gap-2">
+                <CopyShoppingListButton shoppingItems={shoppingList} />
+                <ConfirmPurchaseButton shoppingItems={shoppingList} />
+              </div>
             </div>
             <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto pr-2">
               {shoppingList.map((item, idx) => (
