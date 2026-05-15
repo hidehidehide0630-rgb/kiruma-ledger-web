@@ -83,7 +83,7 @@ export const HouseholdLogic = {
                   missionName: { type: SchemaType.STRING, description: "ミッション名（例: 活力サイドメニュー一括調理）" },
                   instructions: { 
                     type: SchemaType.STRING, 
-                    description: "副菜の具体的な調理手順。必ず『1. 2. 』と番号を振り、詳細な分量と垂直フローを維持せよ。" 
+                    description: "副菜の具体的な調理手順。2つ以上のレシピを生成する場合は、それぞれにタイトル（例:【きんぴら】）を付け、全ての料理について必ず『1. 2. 』と番号を振り、詳細な分量と垂直フローを維持せよ。食材の配分（g単位）を明記すること。" 
                   },
                   ingredients: { 
                     type: SchemaType.STRING, 
@@ -102,8 +102,8 @@ export const HouseholdLogic = {
                     type: SchemaType.OBJECT,
                     properties: {
                       main: { type: SchemaType.STRING },
-                      side: { type: SchemaType.STRING, description: "作り置き（weeklyBatchMissions）から提供すること。" },
-                      soup: { type: SchemaType.STRING, description: "主菜の余り食材で即座に作れるもの。食材がない場合は『なし』で良い" }
+                      side: { type: SchemaType.STRING, description: "提供する全ての副菜名を記載せよ。例:『ほうれん草お浸し ＆ きんぴら』" },
+                      soup: { type: SchemaType.STRING, description: "提供する全てのスープ名を記載せよ。食材がない場合は『なし』で良い" }
                     },
                     required: ["main", "side", "soup"]
                   },
@@ -116,11 +116,11 @@ export const HouseholdLogic = {
                       },
                       side: { 
                         type: SchemaType.STRING, 
-                        description: "副菜のレシピ。作り置きの活用方法を具体的に。例:『1. 冷蔵庫から○○を××g取り出す』。分量も必ず記載せよ。" 
+                        description: "提供する全ての副菜の活用方法またはレシピ。必ず献立名（menu.side）に含まれる全ての料理を網羅し、それぞれについて手順番号を振り、分量（g, 個）を詳細に含めること。作り置きからの取り出し量も明記せよ。" 
                       },
                       soup: { 
                         type: SchemaType.STRING, 
-                        description: "スープのレシピ。余り食材の活用。分量も必ず記載。" 
+                        description: "スープのレシピ。主菜・副菜と同様に、必ず『1. 2. 』と手順番号を振り、分量（g, 個, 本）を詳細に含め、垂直フローで記述せよ。" 
                       }
                     },
                     required: ["main", "side", "soup"]
@@ -166,11 +166,12 @@ export const HouseholdLogic = {
 1日でも多く、あるいは少なく生成することは許されません。${days}日間分のデータのみを dailyPlans に含めてください。
 
 # レシピ出力品質規格（社長絶対命令）
-1. **[手順の番号付け]**: ` + "`" + `instructions.main` + "`" + ` および ` + "`" + `weeklyBatchMissions.instructions` + "`" + ` は必ず「1. 」「2. 」のように手順番号を振ること。
+1. **[手順の番号付け]**: instructions.main, instructions.side, instructions.soup および weeklyBatchMissions.instructions は必ず「1. 」「2. 」のように手順番号を振ること。
 2. **[詳細な分量表示]**: 調理手順の中で、「鶏肉200gを〜」「醤油大さじ1を〜」のように、**具体的な分量をすべて明記せよ**。材料リストに書いてあるからと省略することは厳禁である。
 3. **[垂直フロー構造]**: 手順は一行一工程とし、視覚的に縦に流れるフローチャートのような構成にせよ。
 4. **[活力の言語化]**: 手順の冒頭2行以内で、そのレシピがどのように「活力（剛起）」に寄与するかを熱く記述せよ。
-5. **[副菜の義務化]**: 副菜（weeklyBatchMissions）は、週の食事の多様性とコストパフォーマンスを支える柱である。空配列にせず、必ず戦略的な作り置きメニューを提案せよ。
+5. **[副菜・スープの完全網羅]**: 献立（menu.side, menu.soup）に記載した料理は、必ずそのすべてについて手順（instructions.side, instructions.soup）を記述せよ。一部を省略することは許されない。
+6. **[食材の配分明記]**: 購入した食材（パック等）を複数の料理に分ける場合、それぞれのレシピ内で「○○を××g使用」と明記し、合計が購入量と一致するように計算せよ。
 
 # 季節性活力戦略（Seasonal Vitality）
 1. **[旬の優先]**: 以下の【マスター食材リスト】から、現在の月（${currentMonth}月）が旬に含まれる食材を最優先で採用せよ。
