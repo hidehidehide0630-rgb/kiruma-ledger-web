@@ -3,11 +3,11 @@ import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { isFavorite } = await req.json();
-    const id = params.id;
+    const { id } = await params;
 
     const updated = await prisma.recipe.update({
       where: { id },

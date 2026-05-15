@@ -142,11 +142,31 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
               <h4 className="text-sm font-black text-pink-600 uppercase tracking-widest italic flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span> Main: {parsedName.main}
               </h4>
-              <div className="space-y-4 pl-4 border-l-2 border-pink-100">
+              <div className="space-y-6 pl-6 border-l-2 border-pink-100 relative">
                 {parsedInstructions.main.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => {
-                  const isVitalityBenefit = i < 2 && !line.match(/^[0-9]\./);
+                  const stepMatch = line.match(/^([0-9]+)\.\s*(.*)/);
+                  const isStep = !!stepMatch;
+                  const isVitalityBenefit = i < 2 && !isStep;
+                  
+                  if (isStep) {
+                    const stepNum = stepMatch[1];
+                    const content = stepMatch[2];
+                    return (
+                      <div key={i} className="relative group">
+                        {/* Flowchart Dot/Badge */}
+                        <div className="absolute -left-[31px] top-0.5 w-4 h-4 bg-white border-2 border-pink-500 rounded-full flex items-center justify-center shadow-sm group-hover:scale-125 transition-transform">
+                          <div className="w-1.5 h-1.5 bg-pink-500 rounded-full"></div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-black text-pink-400 uppercase tracking-tighter">Step {stepNum}</span>
+                          <p className="text-gray-700 font-bold leading-relaxed">{content}</p>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div key={i} className={`text-gray-600 font-medium leading-relaxed ${isVitalityBenefit ? 'text-indigo-600 font-black italic text-sm bg-indigo-50/50 p-3 rounded-xl' : ''}`}>
+                    <div key={i} className={`text-gray-600 font-medium leading-relaxed ${isVitalityBenefit ? 'text-indigo-600 font-black italic text-sm bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50 shadow-sm mb-4' : ''}`}>
                       {line}
                     </div>
                   );

@@ -104,9 +104,12 @@ export const HouseholdLogic = {
                   instructions: {
                     type: SchemaType.OBJECT,
                     properties: {
-                      main: { type: SchemaType.STRING },
-                      side: { type: SchemaType.STRING },
-                      soup: { type: SchemaType.STRING }
+                      main: { 
+                        type: SchemaType.STRING, 
+                        description: "主菜のレシピ。必ず『1. ○○を××g切る』のように手順番号を振り、分量（g, 個, 本）を詳細に含めること。視覚的に縦のフローチャートとして理解できる構造にせよ。" 
+                      },
+                      side: { type: SchemaType.STRING, description: "副菜のレシピ。作り置きの活用方法を簡潔に。分量も記載。" },
+                      soup: { type: SchemaType.STRING, description: "スープのレシピ。余り食材の活用。分量も記載。" }
                     },
                     required: ["main", "side", "soup"]
                   },
@@ -116,8 +119,8 @@ export const HouseholdLogic = {
                     items: {
                       type: SchemaType.OBJECT,
                       properties: {
-                        purchaseUnit: { type: SchemaType.STRING, description: "スーパーの販売単位。マスターデータの名称を優先せよ。" },
-                        usageAmount: { type: SchemaType.STRING, description: "その日の使用量。必ず単位(g, 個, 本など)を付けること" },
+                        purchaseUnit: { type: SchemaType.STRING, description: "スーパーの販売単位。マスターデータの名称を優先せよ。例: 豚バラ肉(300gパック)" },
+                        usageAmount: { type: SchemaType.STRING, description: "その日の使用量。必ず単位(g, 個, 本など)を具体的に付けること。例: 150g" },
                         unitPrice: { type: SchemaType.INTEGER, description: "販売単位（パック）あたりの価格。マスターデータを参照せよ。" },
                         proRatedPrice: { type: SchemaType.INTEGER, description: "その日の使用量に相当する価格。1円単位 for 正確に計算せよ。" },
                         isFirstPurchase: { type: SchemaType.BOOLEAN, description: "今回の買い物リストに載せるべき『購入品（またはその使い回し）』ならtrue。DBの在庫リストにあるものを利用する場合のみfalse。" }
@@ -150,33 +153,33 @@ export const HouseholdLogic = {
 ユーザーが「バキバキの肉体」と「最強の血流（勃起力）」を手に入れるための、戦略的・自律的な昼飯メニューを、**必ず指定された日数（${days}日間）ちょうど**生成してください。
 1日でも多く、あるいは少なく生成することは許されません。${days}日間分のデータのみを dailyPlans に含めてください。
 
+# レシピ出力品質規格（社長絶対命令）
+1. **[手順の番号付け]**: ` + "`" + `instructions.main` + "`" + ` は必ず「1. 」「2. 」のように手順番号を振ること。
+2. **[詳細な分量表示]**: 調理手順の中で、「鶏肉200gを〜」「醤油大さじ1を〜」のように、**具体的な分量をすべて明記せよ**。材料リストに書いてあるからと省略することは厳禁である。
+3. **[垂直フロー構造]**: 手順は一行一工程とし、視覚的に縦に流れるフローチャートのような構成にせよ。
+4. **[活力の言語化]**: 手順の冒頭2行以内で、そのレシピがどのように「活力（剛起）」に寄与するかを熱く記述せよ。
+
 # 季節性活力戦略（Seasonal Vitality）
-1. **[旬の優先]**: 以下の【マスター食材リスト】から、現在の月（${currentMonth}月）が旬に含まれる食材を最優先で採用せよ。旬の食材は安価で栄養価が最大化されている。
+1. **[旬の優先]**: 以下の【マスター食材リスト】から、現在の月（${currentMonth}月）が旬に含まれる食材を最優先で採用せよ。
 2. **[活力食材の義務化]**: 'isVitality: true' の食材を主菜に必ず組み込むこと。
 
 # お気に入りレシピの優先（User Favorites）
 以下の【お気に入りレシピ】に含まれるメニューがある場合、ユーザーの好みに合致しているため、積極的に再採用（または類似の構成を採用）せよ。
-ただし、現在の在庫状況や予算、肉魚比率のバランスが崩れる場合は新規メニューを優先して良い。
 【お気に入りレシピ】:
 ${favoritesPrompt}
 
 # 週次バランス（Weekly Logistics）
 1. **[肉魚比率の動的調整]**: 
    - 7日間の場合は「肉4日：魚3日」を厳守せよ。
-   - 7日未満の場合は、その比率に近いバランス（例：4日の場合は肉2:魚2、3日の場合は肉2:魚1など）で構成せよ。
+   - 7日未満の場合は、その比率に近いバランス（例：4日の場合は肉2:魚2）で構成せよ。
 2. **[作り置きミッション (Batch Cooking)]**: 
    - 副菜は毎日作らず、「まとめて作る（Batch Mission）」ロジックで構成せよ。
-   - 生成日数が1〜4日の場合は、Day 1に1回のみまとめて作る。
-   - 生成日数が5日以上の場合は、Day 1とDay 5（または適切な間隔）の2回に分けて作る。
    - 副菜の食材は、主菜で買った食材の「余り（端数）」のみで完結させること。
 
-# 調理・購買ロジック（社長命令）
+# 調理・購買ロジック
 1. **[成人男性1人前]**: すべてのレシピは成人男性1人が満足できる分量で構成せよ。
-2. **[按分価格の計算]**: 'dailyEstimatedPrice' は、その日に「食べた分だけ」のコストを算出せよ。
-3. **[在庫の捏造厳禁・isFirstPurchaseの厳守]**: 
-   - 'isFirstPurchase: false' (在庫利用) を指定できるのは、以下の【現在の在庫状況】にリストされている食材のみです。
-   - 今回の献立プランの中で新しく買う食材（およびその使い回し）は、登場する【全日程】において必ず 'isFirstPurchase: true' としてください。
-4. **[炭水化物のコスト計算除外]**: お米（もち麦入り）などの主食（炭水化物）は、レシピには含めるが、'unitPrice' および 'proRatedPrice' は必ず 0 として計算せよ。
+2. **[在庫の捏造厳禁]**: 【現在の在庫状況】にない食材を 'isFirstPurchase: false' にすることは絶対に許されない。
+3. **[炭水化物のコスト計算除外]**: お米（もち麦入り）などの主食は、レシピには含めるがコストは 0 とせよ。
 `;
 
     const userPrompt = `
