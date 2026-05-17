@@ -62,6 +62,7 @@ export default function HouseholdSetupPage() {
     }
   }, [days, recs]);
 
+  // 在庫読み込みは inventoryText のみ更新する。days / budget には絶対に副作用を与えない。
   const handleLoadInventory = async () => {
     setIsLoadingInventory(true);
     try {

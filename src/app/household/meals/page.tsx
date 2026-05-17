@@ -52,10 +52,10 @@ export default async function MealManagementPage() {
             const isFirst = i.isFirstPurchase === true;
 
             if (!shoppingListMap.has(name)) {
-              shoppingListMap.set(name, { 
-                usageAmount: new Set(), 
-                unitPrice: price, 
-                isNewPurchase: false 
+              shoppingListMap.set(name, {
+                usageAmount: new Set(),
+                unitPrice: price,
+                isNewPurchase: false
               });
             }
             const item = shoppingListMap.get(name)!;
@@ -68,6 +68,31 @@ export default async function MealManagementPage() {
         // Parse error
       }
     }
+  });
+
+  // 作り置きミッションの食材も買い物リストに統合（テキスト形式のため価格は0扱い）
+  batchMissions.forEach(mission => {
+    if (!mission.ingredients) return;
+    mission.ingredients.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      // "ニラ 1束" / "ほうれん草: 200g" 等から名前と数量を抽出
+      const match = trimmed.match(/^([^\d:：(（]+?)\s*[:：]?\s*(.*)$/);
+      const name = (match ? match[1] : trimmed).trim();
+      const usage = (match ? match[2] : '').trim();
+      if (!name) return;
+
+      if (!shoppingListMap.has(name)) {
+        shoppingListMap.set(name, {
+          usageAmount: new Set(),
+          unitPrice: 0,
+          isNewPurchase: true // バッチ食材は新規購入扱い
+        });
+      }
+      const item = shoppingListMap.get(name)!;
+      if (usage) item.usageAmount.add(usage);
+      item.isNewPurchase = true;
+    });
   });
 
   let totalCost = 0;
