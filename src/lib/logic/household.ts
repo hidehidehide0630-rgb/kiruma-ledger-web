@@ -251,6 +251,52 @@ ${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達
           throw new Error("JSONの構造が不正です（dailyPlansが見つかりません）。");
         }
 
+        // 安全網: AIがweeklyBatchMissionsの食材を対応する日のdailyPlans[].ingredientsに
+        // 重複記載し忘れた場合に備え、機械的にマージする（プロンプトでは指示済みだが順守率100%でないため）。
+        // これがないと買い物リストにbatch食材（ニラ・ほうれん草等）が出現しないバグが発生する。
+        const parseBatchLine = (line: string): { name: string; qty: string } | null => {
+          const t = line.trim().replace(/^[・\-*•]\s*/, '');
+          if (!t) return null;
+          const m = t.match(/^(.+?)\s+([\d./]+\s*\S*)$/);
+          if (m) return { name: m[1].trim(), qty: m[2].trim() };
+          return { name: t, qty: '適量' };
+        };
+        const findMaster = (name: string) => {
+          return masters.find(m => m.name === name)
+              || masters.find(m => m.name.includes(name) || name.includes(m.name));
+        };
+        const stripParen = (s: string) => (s || '').replace(/\s*[(（][^)）]*[)）]\s*/g, '').trim();
+        const inventoryNames = new Set(inventory.map(i => i.name));
+
+        for (const mission of (parsedData.weeklyBatchMissions || [])) {
+          const dayIdx = (mission.day || 1) - 1;
+          if (dayIdx < 0 || dayIdx >= parsedData.dailyPlans.length) continue;
+          const plan = parsedData.dailyPlans[dayIdx];
+          if (!Array.isArray(plan.ingredients)) plan.ingredients = [];
+
+          const existingBaseNames = new Set(
+            plan.ingredients.map((i: any) => stripParen(i.purchaseUnit || ''))
+          );
+
+          const lines = (mission.ingredients || '').split('\n');
+          for (const line of lines) {
+            const parsed = parseBatchLine(line);
+            if (!parsed) continue;
+            if (existingBaseNames.has(parsed.name)) continue;
+            const master = findMaster(parsed.name);
+            const inInventory = inventoryNames.has(parsed.name)
+                             || (master ? inventoryNames.has(master.name) : false);
+            plan.ingredients.push({
+              purchaseUnit: master ? `${master.name}(${master.unit})` : parsed.name,
+              usageAmount: parsed.qty,
+              unitPrice: master?.basePrice || 0,
+              proRatedPrice: 0,
+              isFirstPurchase: !inInventory
+            });
+            existingBaseNames.add(parsed.name);
+          }
+        }
+
         // 型安全性を考慮してデータを整理（UI側の期待に合わせて変換）
         return {
           dailyPlans: parsedData.dailyPlans.map((plan: any, index: number) => {
