@@ -6,7 +6,7 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { days, budget, startDate, inventoryText, includeFavorites } = await req.json();
+    const { days, budget, startDate, inventoryText, includeFavorites, selectedFavorites } = await req.json();
 
     // 1. 在庫情報の更新（画面의 入力内容でDBを完全に同期する）
     // 社長の最新の冷蔵庫状況を反映するため、一旦クリア
@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
       tripBudget: budget || 15000,
       startDate: start,
       vitalityMode: true, // デフォルトON
-      includeFavorites: includeFavorites || false
+      includeFavorites: includeFavorites || false,
+      selectedFavorites: selectedFavorites || []
     });
 
     // 3. データベースへの保存（ミッションのクリア）

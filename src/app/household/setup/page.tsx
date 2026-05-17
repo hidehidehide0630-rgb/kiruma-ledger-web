@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SeasonalIngredientList from '@/components/meals/SeasonalIngredientList';
+import RecipeDetailModal from '@/components/meals/RecipeDetailModal';
 
 interface Recipe {
   id: string;
   name: string;
   ingredients: string;
+  instructions: string;
   estimatedPrice: number;
 }
 
@@ -37,6 +39,8 @@ export default function HouseholdSetupPage() {
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
   const [favorites, setFavorites] = useState<Recipe[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
+  const [selectedRecipeForModal, setSelectedRecipeForModal] = useState<Recipe | null>(null);
+  const [mustIncludeRecipeIds, setMustIncludeRecipeIds] = useState<string[]>([]);
 
   // 予算推薦データの取得
   useEffect(() => {
@@ -113,10 +117,11 @@ export default function HouseholdSetupPage() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
+      const selectedFavoriteRecipes = favorites.filter(f => mustIncludeRecipeIds.includes(f.id));
       const response = await fetch('/api/household/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days, budget, startDate: new Date(), inventoryText, includeFavorites })
+        body: JSON.stringify({ days, budget, startDate: new Date(), inventoryText, includeFavorites, selectedFavorites: selectedFavoriteRecipes })
       });
       
       const text = await response.text();
@@ -246,8 +251,8 @@ export default function HouseholdSetupPage() {
               className="w-5 h-5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
             />
             <label htmlFor="includeFavorites" className="text-sm font-bold text-amber-900 cursor-pointer">
-              お気に入りレシピを優先的に再利用する
-              <span className="block text-[10px] text-amber-700 font-medium mt-0.5">※過去に★をつけた献立から、予算と栄養バランスに合うものをAIが選びます。</span>
+              お気に入りレシピを考慮する
+              <span className="block text-[10px] text-amber-700 font-medium mt-0.5">※過去に★をつけた献立から、予算と栄養バランスに合うものをAIが選びます。（確実に組み込みたい場合は下で選択してください）</span>
             </label>
           </div>
 
@@ -262,21 +267,80 @@ export default function HouseholdSetupPage() {
               ) : favorites.length === 0 ? (
                 <p className="text-xs text-amber-700/60 italic bg-amber-100/50 p-3 rounded-lg border border-amber-100">お気に入りに登録されたレシピはまだありません。日々の献立画面から「★」をタップして登録できます。</p>
               ) : (
-                <div className="flex overflow-x-auto pb-3 gap-3 snap-x scrollbar-thin scrollbar-thumb-pink-200 scrollbar-track-transparent">
-                  {favorites.map((recipe) => (
-                    <div key={recipe.id} className="min-w-[160px] max-w-[160px] snap-start bg-white border border-pink-100/60 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-pink-300 transition-all group flex flex-col justify-between">
-                      <div>
-                        <p className="font-bold text-xs text-gray-800 line-clamp-2 group-hover:text-pink-600 transition-colors">{recipe.name}</p>
-                        <p className="text-[10px] text-gray-400 mt-2 line-clamp-2">{recipe.ingredients}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {favorites.map((recipe) => {
+                    let parsedName = recipe.name;
+                    let parsedSide = "";
+                    let parsedSoup = "";
+                    try {
+                      const n = JSON.parse(recipe.name);
+                      if (n.main) {
+                        parsedName = n.main;
+                        parsedSide = n.side || "";
+                        parsedSoup = n.soup || "";
+                      }
+                    } catch (e) {}
+                    const isSelected = mustIncludeRecipeIds.includes(recipe.id);
+
+                    return (
+                      <div 
+                        key={recipe.id} 
+                        className={`relative bg-white border-2 rounded-xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group ${isSelected ? 'border-pink-500 bg-pink-50/30' : 'border-amber-100 hover:border-pink-300'}`}
+                        onClick={() => {
+                          if (isSelected) {
+                            setMustIncludeRecipeIds(prev => prev.filter(id => id !== recipe.id));
+                          } else {
+                            setMustIncludeRecipeIds(prev => [...prev, recipe.id]);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex-1">
+                            <p className="font-bold text-sm text-gray-800 leading-tight group-hover:text-pink-600 transition-colors">{parsedName}</p>
+                            {(parsedSide || parsedSoup) && (
+                              <p className="text-[10px] text-gray-500 mt-1 line-clamp-1">
+                                {parsedSide && `副菜: ${parsedSide}`} {parsedSoup && `スープ: ${parsedSoup}`}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 pt-0.5">
+                            <input 
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="w-5 h-5 rounded text-pink-600 focus:ring-pink-500 border-gray-300 shadow-sm cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs font-black text-pink-500">¥{recipe.estimatedPrice.toLocaleString()}</p>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRecipeForModal(recipe);
+                            }}
+                            className="text-[10px] font-bold bg-gray-100 hover:bg-pink-100 text-gray-600 hover:text-pink-700 px-3 py-1.5 rounded-lg transition-colors border border-gray-200 hover:border-pink-200"
+                          >
+                            詳細を見る
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-[11px] font-black text-pink-500 mt-2 text-right">¥{recipe.estimatedPrice.toLocaleString()}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
         </div>
+
+        {selectedRecipeForModal && (
+          <RecipeDetailModal 
+            recipe={selectedRecipeForModal}
+            isOpen={!!selectedRecipeForModal}
+            onClose={() => setSelectedRecipeForModal(null)}
+          />
+        )}
 
         <div className="pt-4">
           <button

@@ -30,8 +30,9 @@ export const HouseholdLogic = {
     vitalityMode?: boolean;
     budgetBuffer?: number;
     includeFavorites?: boolean;
+    selectedFavorites?: any[];
   }) {
-    const { startDate, days, tripBudget, vitalityMode, includeFavorites } = params;
+    const { startDate, days, tripBudget, vitalityMode, includeFavorites, selectedFavorites } = params;
 
     // マスター食材リストを取得
     const masters = await prisma.ingredientMaster.findMany();
@@ -57,6 +58,27 @@ export const HouseholdLogic = {
           }
         }).join('\n');
       }
+    }
+    
+    // 優先レシピ
+    let mustIncludePrompt = "";
+    if (selectedFavorites && selectedFavorites.length > 0) {
+      const formattedMustIncludes = selectedFavorites.map(f => {
+        try {
+          const n = JSON.parse(f.name);
+          return `- 主菜: ${n.main} (副菜: ${n.side}, スープ: ${n.soup})`;
+        } catch (e) {
+          return `- ${f.name}`;
+        }
+      }).join('\n');
+      
+      mustIncludePrompt = `
+# 【絶対命令】優先指定レシピ (MUST INCLUDE)
+ユーザーが以下のレシピを「今回絶対に献立に入れたい」と指定しています。
+指定された日数のどこかで、**必ず**以下の全てのレシピを dailyPlans にそのまま割り当ててください。
+名前も極力一語一句変えずに採用してください。これは予算制約など他のいかなる制約よりも最優先される絶対条件です。
+${formattedMustIncludes}
+`;
     }
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -170,6 +192,7 @@ export const HouseholdLogic = {
 # Goal
 ユーザーが「バキバキの肉体」と「最強の血流（勃起力）」を手に入れるための、戦略的・自律的な昼飯メニューを、**必ず指定された日数（${days}日間）ちょうど**生成してください。
 1日でも多く、あるいは少なく生成することは許されません。${days}日間分のデータのみを dailyPlans に含めてください。
+${mustIncludePrompt}
 
 # レシピ出力品質規格（社長絶対命令）
 1. **[手順の番号付け・厳守]**: dailyPlans.instructions.main および weeklyBatchMissions.instructions は、例外なく全手順を「1. 〇〇する」「2. 〇〇する」の形式で番号付きで記述せよ。段落文・箇条書き（「・」「-」）・連続文での記述は絶対禁止。
