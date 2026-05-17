@@ -148,6 +148,28 @@ export default function HouseholdSetupPage() {
     }
   };
 
+  const handleRemoveFavorite = async (recipeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('このレシピをお気に入りから外しますか？')) return;
+    
+    try {
+      const res = await fetch(`/api/household/recipes/${recipeId}/favorite`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFavorite: false })
+      });
+      if (res.ok) {
+        setFavorites(prev => prev.filter(r => r.id !== recipeId));
+        setMustIncludeRecipeIds(prev => prev.filter(id => id !== recipeId));
+      } else {
+        alert('解除に失敗しました。');
+      }
+    } catch (error) {
+      console.error('Failed to remove favorite', error);
+      alert('エラーが発生しました');
+    }
+  };
+
   const totalRecommendedDaily = recs.reduce((sum, r) => sum + r.dailyRecommended, 0);
 
   return (
@@ -315,15 +337,24 @@ export default function HouseholdSetupPage() {
                         
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                           <p className="text-xs font-black text-pink-500">¥{recipe.estimatedPrice.toLocaleString()}</p>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedRecipeForModal(recipe);
-                            }}
-                            className="text-[10px] font-bold bg-gray-100 hover:bg-pink-100 text-gray-600 hover:text-pink-700 px-3 py-1.5 rounded-lg transition-colors border border-gray-200 hover:border-pink-200"
-                          >
-                            詳細を見る
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => handleRemoveFavorite(recipe.id, e)}
+                              className="text-[12px] font-bold text-gray-400 hover:text-red-500 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors border border-transparent hover:border-red-200"
+                              title="お気に入りから外す"
+                            >
+                              🗑️
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedRecipeForModal(recipe);
+                              }}
+                              className="text-[10px] font-bold bg-gray-100 hover:bg-pink-100 text-gray-600 hover:text-pink-700 px-3 py-1.5 rounded-lg transition-colors border border-gray-200 hover:border-pink-200"
+                            >
+                              詳細を見る
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
