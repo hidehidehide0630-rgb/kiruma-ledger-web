@@ -78,19 +78,19 @@ export const HouseholdLogic = {
           properties: {
             weeklyBatchMissions: {
               type: SchemaType.ARRAY,
-              description: "週2回（1日目と5日目）にまとめて作る副菜のミッション。主菜の余り食材を活用し、必ず2つ以上のレシピを生成せよ。空配列は厳禁である。",
+              description: "1週間分の全副菜・全スープのレシピと食材を網羅する作り置きミッション。dailyPlansのmenu.sideおよびmenu.soupに記載した全料理のレシピと食材を、漏れなくここに記載せよ。日数に応じて1〜2回のバッチに分割する。空配列は厳禁。",
               items: {
                 type: SchemaType.OBJECT,
                 properties: {
-                  day: { type: SchemaType.INTEGER, description: "実施する日（1または5）" },
-                  missionName: { type: SchemaType.STRING, description: "ミッション名（例: 活力サイドメニュー一括調理）" },
+                  day: { type: SchemaType.INTEGER, description: "実施する日（1日目 or 中間日）" },
+                  missionName: { type: SchemaType.STRING, description: "ミッション名（例: 副菜・スープ一括調理 Day1）" },
                   instructions: { 
                     type: SchemaType.STRING, 
-                    description: "副菜の具体的な調理手順。2つ以上のレシピを生成する場合は、それぞれにタイトル（例:【きんぴら】）を付け、全ての料理について必ず『1. 2. 』と番号を振り、詳細な分量と垂直フローを維持せよ。食材の配分（g単位）を明記すること。" 
+                    description: "副菜・スープの具体的な調理手順。各レシピにタイトル（例:【きんぴら】【味噌汁】）を付け、全ての料理について必ず『1. 2. 』と番号を振り、詳細な分量と垂直フローを維持せよ。食材の配分（g単位）を明記すること。" 
                   },
                   ingredients: {
                     type: SchemaType.ARRAY,
-                    description: "副菜に必要な食材リスト。dailyPlans.ingredientsと同一の構造化形式で出力せよ。",
+                    description: "この回の副菜・スープに必要な全食材リスト。unitPriceは必ず1円以上を設定せよ。",
                     items: {
                       type: SchemaType.OBJECT,
                       properties: {
@@ -115,8 +115,8 @@ export const HouseholdLogic = {
                     type: SchemaType.OBJECT,
                     properties: {
                       main: { type: SchemaType.STRING },
-                      side: { type: SchemaType.STRING, description: "提供する全ての副菜名を記載せよ。例:『ほうれん草お浸し ＆ きんぴら』" },
-                      soup: { type: SchemaType.STRING, description: "提供する全てのスープ名を記載せよ。食材がない場合は『なし』で良い" }
+                      side: { type: SchemaType.STRING, description: "その日に食べる副菜の名前のみ。レシピはweeklyBatchMissionsに記載。例:『ほうれん草お浸し ＆ きんぴら』" },
+                      soup: { type: SchemaType.STRING, description: "その日に食べるスープの名前のみ。レシピはweeklyBatchMissionsに記載。食材がない場合は『なし』" }
                     },
                     required: ["main", "side", "soup"]
                   },
@@ -125,21 +125,14 @@ export const HouseholdLogic = {
                     properties: {
                       main: { 
                         type: SchemaType.STRING, 
-                        description: "主菜のレシピ。必ず『1. ○○を××g切る』のように手順番号を振り、分量（g, 個, 本）を詳細に含めること。視覚的に縦のフローチャートとして理解できる構造にせよ。" 
-                      },
-                      side: {
-                        type: SchemaType.STRING,
-                        description: "副菜のレシピ。主菜（instructions.main）と完全に同一のフォーマットで記述せよ。冒頭2行以内に活力への貢献を記述した後、必ず『1. 〇〇（分量g）を〜する』『2. 〇〇を〜する』と手順番号を振り、分量（g, 個, 本）を全手順に詳細に含めること。段落文・箇条書きは絶対禁止。"
-                      },
-                      soup: {
-                        type: SchemaType.STRING,
-                        description: "スープのレシピ。主菜（instructions.main）と完全に同一のフォーマットで記述せよ。冒頭2行以内に活力への貢献を記述した後、必ず『1. 〇〇（分量g）を〜する』『2. 〇〇を〜する』と手順番号を振り、分量（g, 個, 本）を全手順に詳細に含め、垂直フローで記述せよ。段落文は絶対禁止。"
+                        description: "【主菜のレシピのみ】副菜・スープのレシピはweeklyBatchMissionsに記載せよ。必ず『1. ○○を××g切る』のように手順番号を振り、分量（g, 個, 本）を詳細に含めること。視覚的に縦のフローチャートとして理解できる構造にせよ。" 
                       }
                     },
-                    required: ["main", "side", "soup"]
+                    required: ["main"]
                   },
                   dailyEstimatedPrice: { type: SchemaType.INTEGER, description: "その日に食べた分だけのコスト（按分価格の合計）" },
                   ingredients: {
+                    description: "この日の【主菜のみ】に必要な食材リスト。副菜・スープの食材はweeklyBatchMissions.ingredientsに記載せよ。二重計上を避けるため、副菜・スープ用の食材をここに含めるな。",
                     type: SchemaType.ARRAY,
                     items: {
                       type: SchemaType.OBJECT,
@@ -179,21 +172,23 @@ export const HouseholdLogic = {
 1日でも多く、あるいは少なく生成することは許されません。${days}日間分のデータのみを dailyPlans に含めてください。
 
 # レシピ出力品質規格（社長絶対命令）
-1. **[手順の番号付け・厳守]**: instructions.main, instructions.side, instructions.soup および weeklyBatchMissions.instructions は、例外なく全手順を「1. 〇〇する」「2. 〇〇する」の形式で番号付きで記述せよ。段落文・箇条書き（「・」「-」）・連続文での記述は絶対禁止。副菜・スープも主菜と全く同じフォーマットで書け。
+1. **[手順の番号付け・厳守]**: dailyPlans.instructions.main および weeklyBatchMissions.instructions は、例外なく全手順を「1. 〇〇する」「2. 〇〇する」の形式で番号付きで記述せよ。段落文・箇条書き（「・」「-」）・連続文での記述は絶対禁止。
 2. **[詳細な分量表示]**: 調理手順の中で、「鶏肉200gを〜」「醤油大さじ1を〜」のように、**具体的な分量をすべて明記せよ**。材料リストに書いてあるからと省略することは厳禁である。
 3. **[垂直フロー構造]**: 手順は一行一工程とし、視覚的に縦に流れるフローチャートのような構成にせよ。
 4. **[活力の言語化]**: 手順の冒頭2行以内で、そのレシピがどのように「活力（剛起）」に寄与するかを熱く記述せよ。この冒頭説明も必ず番号なしで独立した行として記述し、その後に「1. 」から手順を開始せよ。
-5. **[副菜・スープの完全網羅]**: 献立（menu.side, menu.soup）に記載した料理は、必ずそのすべてについて手順（instructions.side, instructions.soup）を記述せよ。一部を省略することは許されない。
-6. **[食材の配分明記]**: 購入した食材（パック等）を複数の料理に分ける場合、それぞれのレシピ内で「○○を××g使用」と明記し、合計が購入量と一致するように計算せよ。
+5. **[責務分離の厳守]**: dailyPlansには主菜のレシピと主菜の食材のみ。副菜・スープのレシピと食材は全てweeklyBatchMissionsに記載せよ。dailyPlansのmenu.side/soupには名前だけ書け。
+6. **[副菜・スープの完全網羅]**: dailyPlans.menu.side および menu.soup に記載した全ての料理は、必ず weeklyBatchMissions.instructions にレシピを記載し、weeklyBatchMissions.ingredients にその食材を漏れなく記載せよ。食べるメニューだけをBatch Missionに含め、食べないレシピは絶対に生成するな。
+7. **[食材の配分明記]**: 購入した食材（パック等）を複数の料理に分ける場合、それぞれのレシピ内で「○○を××g使用」と明記し、合計が購入量と一致するように計算せよ。
 
 ## 出力フォーマット厳守サンプル（これ以外の形式は不合格）
-instructions.side の正しい例:
-副菜は血管拡張効果のあるナムルとサラダで剛起を強化する。
-1. 春キャベツ1/4玉（75g）を千切りにする
-2. 鍋に湯を沸かし、キャベツを30秒湯がいて水気を絞る
-3. ごま油小さじ1、塩ひとつまみ、白ごま少々で和える
+weeklyBatchMissions.instructions の正しい例:
+【ほうれん草お浸し】
+副菜は血管拡張効果のあるお浸しで剛起を強化する。
+1. ほうれん草1束（200g）をよく洗い、根元を切り落とす
+2. 鍋に湯を沸かし、30秒湯がいて冷水に取り水気を絞る
+3. 醤油小さじ2、かつお節ひとつまみで和える
 
-instructions.soup の正しい例:
+【味噌汁（玉ねぎ・わかめ）】
 スープは玉ねぎの硫化アリルで血流を爆上げする。
 1. 玉ねぎ1個（200g）を薄切りにする
 2. 鍋にだし汁400mlを沸かし玉ねぎを入れ中火で5分煮る
@@ -215,17 +210,19 @@ ${favoritesPrompt}
 1. **[肉魚比率の動的調整]**: 
    - 7日間の場合は「肉4日：魚3日」を厳守せよ。
    - 7日未満の場合は、その比率に近いバランス（例：4日の場合は肉2:魚2）で構成せよ。
-2. **[作り置きミッション (Batch Cooking)]**:
-   - 副菜は毎日作らず、「まとめて作る（Batch Mission）」ロジックで構成せよ。
-   - 副菜の食材は主菜の「余り（端数）」を**優先**して使うこと。ただし副菜にのみ必要な食材（例：ニラ、人参、ほうれん草、乾燥ワカメ、塩昆布、油、調味料など）は、必ず weeklyBatchMissions[].ingredients に構造化形式（purchaseUnit, usageAmount, unitPrice, isFirstPurchase）で全て列挙せよ。
-   - **[買い物リスト統合]** weeklyBatchMissions.ingredients に列挙した食材は、サーバー側で自動的に買い物リストに統合される。dailyPlans[].ingredients への重複記載は不要である（むしろ二重計上を避けるため記載するな）。
+2. **[作り置きミッション (Batch Cooking) — 最重要の責務分離]**:
+   - 副菜とスープは毎日作らず、weeklyBatchMissionsで「まとめて作る」ロジックで構成せよ。
+   - dailyPlans.instructions には主菜のレシピのみを書け。副菜・スープのレシピは絶対にdailyPlansに書くな。
+   - dailyPlans.ingredients には主菜の食材のみを書け。副菜・スープの食材は全て weeklyBatchMissions.ingredients に記載せよ。
+   - weeklyBatchMissions には、dailyPlans.menu.side/soup に記載した全ての副菜・スープのレシピと食材を漏れなく含めよ。実際に食べるメニューだけを生成し、食べないレシピは絶対に含めるな。
+   - 副菜の食材は主菜の「余り（端数）」を**優先**して使うこと。ただし副菜・スープにのみ必要な食材は、必ず weeklyBatchMissions[].ingredients に構造化形式（purchaseUnit, usageAmount, unitPrice, isFirstPurchase）で全て列挙せよ。
    - 在庫にあるものは isFirstPurchase: false、購入が必要なものは true として正確に分類すること。
 
 # 調理・購買ロジック
 1. **[成人男性1人前]**: すべてのレシピは成人男性1人が満足できる分量で構成せよ。
 2. **[在庫の捏造厳禁]**: 【現在の在庫状況】にない食材を 'isFirstPurchase: false' にすることは絶対に許されない。逆に在庫にある食材は必ず isFirstPurchase: false にして買い物リストから除外せよ。
 3. **[炭水化物のコスト計算除外]**: お米（もち麦入り）などの主食は、レシピには含めるがコストは 0 とせよ。
-4. **[予算厳守・最重要]**: dailyPlans[].ingredients 内の isFirstPurchase: true の食材の unitPrice 合計は、必ず指定予算（${tripBudget}円）以内に収めよ。+500円までの超過は許容するが、それ以上の超過は不合格である。予算超過が見込まれる場合は、活力食材を維持したまま副菜の品数や肉魚の購入量を調整して予算内に収めよ。
+4. **[予算厳守・最重要]**: dailyPlans[].ingredients と weeklyBatchMissions[].ingredients の両方を合算し、isFirstPurchase: true の食材の unitPrice 合計が必ず指定予算（${tripBudget}円）以内に収まるようにせよ。+500円までの超過は許容するが、それ以上の超過は不合格である。予算超過が見込まれる場合は、活力食材を維持したまま副菜の品数や肉魚の購入量を調整して予算内に収めよ。
 
 【現在の在庫状況】:
 ${inventoryList}
@@ -263,15 +260,14 @@ ${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達
         }
 
         // ============================================================
-        // ハイブリッド処理（master価格上書き + 自動INSERT + 安全網統合）
+        // ハイブリッド処理（master価格上書き + 自動INSERT）
         // ============================================================
         // 設計方針:
         //   1. AIが返した unitPrice を尊重しつつ、masterに登録があれば
         //      master.basePrice で上書き（実勢価格を「正解」とする）。
         //   2. masterに無い食材は、AI推定価格でmasterに自動INSERT。
         //      → 次回以降は master からヒットし、価格精度が安定する（自動成長）。
-        //   3. weeklyBatchMissions.ingredients を dailyPlans[].ingredients に
-        //      機械的に統合（買い物リストは dailyPlans 側から集計するため）。
+        //   ※ 買い物リストはUI側でdailyPlans + batchMissionsの両方から集計する。
 
         // ネスト括弧対応: 最初の `(` 以降を切り捨て
         const stripParen = (s: string) => {
@@ -333,31 +329,8 @@ ${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達
           }
         }
 
-        // 安全網: weeklyBatchMissions.ingredients を dailyPlans[].ingredients に統合
-        // （買い物リスト集計は dailyPlans 側で行うため、構造を寄せる）
-        for (const mission of (parsedData.weeklyBatchMissions || [])) {
-          const dayIdx = (mission.day || 1) - 1;
-          if (dayIdx < 0 || dayIdx >= parsedData.dailyPlans.length) continue;
-          const plan = parsedData.dailyPlans[dayIdx];
-          if (!Array.isArray(plan.ingredients)) plan.ingredients = [];
-
-          const existingBaseNames = new Set(
-            plan.ingredients.map((i: any) => stripParen(i.purchaseUnit || ''))
-          );
-
-          for (const ing of (mission.ingredients || [])) {
-            const baseName = stripParen(ing.purchaseUnit || '');
-            if (!baseName || existingBaseNames.has(baseName)) continue;
-            // 在庫判定の補強（AIがisFirstPurchaseを取り違えるケース対策）
-            const inInventory = inventoryNames.has(baseName);
-            plan.ingredients.push({
-              ...ing,
-              proRatedPrice: ing.proRatedPrice || 0,
-              isFirstPurchase: inInventory ? false : (ing.isFirstPurchase !== false)
-            });
-            existingBaseNames.add(baseName);
-          }
-        }
+        // 買い物リストはUI側でdailyPlans + batchMissionsの両方から独立して集計する。
+        // dailyPlansには主菜の食材のみ、batchMissionsには副菜・スープの食材のみが入る。
 
         // 型安全性を考慮してデータを整理（UI側の期待に合わせて変換）
         return {

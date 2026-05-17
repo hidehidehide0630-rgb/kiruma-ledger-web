@@ -53,9 +53,9 @@ export default async function MealManagementPage() {
   };
 
   // 買い物リストと合計金額の集計
-  // 買い物リストは dailyPlans[].ingredients のみから集計する（単一の真実源）。
-  // batchMission の食材はサーバー側（HouseholdLogic.generateMenu内）で
-  // dailyPlans[].ingredients に統合済みのため、ここでの二次集計は不要。
+  // 買い物リストは2つのソースから集計する（責務分離アーキテクチャ）:
+  //   1. mealPlans（dailyPlans）: 主菜の食材
+  //   2. batchMissions: 副菜・スープの食材
   // 集計キーは「基本名（最初の括弧以降を切り捨て）」で正規化し、同一食材を1件にまとめる。
   // ネストした括弧（例: "枝豆(1袋(250g))"）にも対応するため、最初の `(` の位置で切る方式を採用。
   const stripParen = (s: string) => {
@@ -97,6 +97,44 @@ export default async function MealManagementPage() {
               item.displayName = rawName;
             }
             // 「適量」は数量加算の邪魔になるので、他に数量があれば省く
+            if (usage && !(usage.trim() === '適量' && item.usages.length > 0)) {
+              item.usages.push(usage);
+            }
+            if (isFirst) item.isNewPurchase = true;
+            if (price > 0 && item.unitPrice === 0) item.unitPrice = price;
+          });
+        }
+      } catch (e) {
+        // Parse error
+      }
+    }
+  });
+
+  // Batch Missions（副菜・スープ）の食材も買い物リストに統合
+  batchMissions.forEach(mission => {
+    if (mission.ingredients) {
+      try {
+        const parsed = JSON.parse(mission.ingredients);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((i: any) => {
+            const rawName = i.purchaseUnit || i.name || '不明な材料';
+            const baseName = stripParen(rawName) || rawName;
+            const usage = i.usageAmount || i.quantity || '';
+            const price = i.unitPrice || i.price || 0;
+            const isFirst = i.isFirstPurchase === true;
+
+            if (!shoppingListMap.has(baseName)) {
+              shoppingListMap.set(baseName, {
+                displayName: rawName,
+                usages: [],
+                unitPrice: price,
+                isNewPurchase: false
+              });
+            }
+            const item = shoppingListMap.get(baseName)!;
+            if (rawName.length > item.displayName.length) {
+              item.displayName = rawName;
+            }
             if (usage && !(usage.trim() === '適量' && item.usages.length > 0)) {
               item.usages.push(usage);
             }
