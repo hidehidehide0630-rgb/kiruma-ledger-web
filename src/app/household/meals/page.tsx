@@ -125,6 +125,14 @@ export default async function MealManagementPage() {
     }
   };
 
+  // instructions テキストから【メニュー名】パターンを抽出
+  const extractMenuNames = (rawInstructions: string): string[] => {
+    if (!rawInstructions) return [];
+    const matches = rawInstructions.match(/【([^】]+)】/g);
+    if (!matches) return [];
+    return matches.map(m => m.replace(/[【】]/g, '').trim()).filter(Boolean);
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in duration-1000">
       <div className="flex justify-between items-end">
@@ -231,7 +239,9 @@ export default async function MealManagementPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {batchMissions.map((mission) => (
+            {batchMissions.map((mission) => {
+              const menuNames = extractMenuNames(mission.instructions);
+              return (
               <div key={mission.id} className="bg-white p-6 rounded-[2rem] border border-indigo-50 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                   <span className="text-6xl italic font-black">Day {mission.day}</span>
@@ -245,10 +255,15 @@ export default async function MealManagementPage() {
                       {mission.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
                     </span>
                   </div>
-                  
-                  <h4 className="text-lg font-black text-gray-800 mb-4 leading-tight">
-                    {mission.name}
+
+                  <h4 className="text-lg font-black text-gray-800 mb-2 leading-tight">
+                    {menuNames.length > 0 ? menuNames.join(' / ') : mission.name}
                   </h4>
+                  {menuNames.length > 0 && (
+                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-4 italic">
+                      {mission.name}
+                    </p>
+                  )}
                   
                   <div className="space-y-3">
                     {mission.ingredients?.split('\n').map((item, i) => (
@@ -267,7 +282,8 @@ export default async function MealManagementPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

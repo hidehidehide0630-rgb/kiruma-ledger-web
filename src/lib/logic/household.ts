@@ -205,9 +205,10 @@ ${favoritesPrompt}
 1. **[肉魚比率の動的調整]**: 
    - 7日間の場合は「肉4日：魚3日」を厳守せよ。
    - 7日未満の場合は、その比率に近いバランス（例：4日の場合は肉2:魚2）で構成せよ。
-2. **[作り置きミッション (Batch Cooking)]**: 
+2. **[作り置きミッション (Batch Cooking)]**:
    - 副菜は毎日作らず、「まとめて作る（Batch Mission）」ロジックで構成せよ。
    - 副菜の食材は主菜の「余り（端数）」を**優先**して使うこと。ただし副菜にのみ必要な食材（例：ニラ、薬味、葉物野菜など）は、必ず dailyPlans[].ingredients に追加し isFirstPurchase: true で買い物リストに反映させること。「余りのみで完結」を理由に副菜固有の食材を ingredients から欠落させることは厳禁。
+   - **[最重要・買い物リスト整合性]** weeklyBatchMissions の ingredients に列挙する全ての食材は、必ずそのミッションの day（1 または 5）に対応する dailyPlans[].ingredients にも構造化形式（purchaseUnit, usageAmount, unitPrice, proRatedPrice, isFirstPurchase）で重複して追加せよ。weeklyBatchMissions.ingredients は調理レシピ表示用、dailyPlans[].ingredients は買い物リスト集計用と機能を分けるため、両方への記載が必須である。在庫にあるものは isFirstPurchase: false、購入が必要なものは true として正確に分類すること。
 
 # 調理・購買ロジック
 1. **[成人男性1人前]**: すべてのレシピは成人男性1人が満足できる分量で構成せよ。
