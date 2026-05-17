@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     // 3. データベースへの保存（ミッションのクリア）
     await prisma.batchMission.deleteMany({
         where: {
-            date: { gte: start }
+            date: { gte: today }
         }
     });
 
