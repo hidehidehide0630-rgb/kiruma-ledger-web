@@ -56,8 +56,17 @@ export default async function MealManagementPage() {
   // 買い物リストはdailyPlans[].ingredientsのみから集計する。
   // batchMission.ingredientsはテキスト形式のため、AIには副菜固有食材を必ず
   // dailyPlans[].ingredients側に入れるようプロンプトで指示している。
+  // 集計キーは「基本名（最初の括弧以降を切り捨て）」で正規化し、同一食材を1件にまとめる。
+  // ネストした括弧（例: "枝豆(1袋(250g))"）にも対応するため、最初の `(` の位置で切る方式を採用。
+  const stripParen = (s: string) => {
+    if (!s) return '';
+    const idx = s.search(/[(（]/);
+    return (idx >= 0 ? s.substring(0, idx) : s).trim();
+  };
+
   const shoppingListMap = new Map<string, {
-    usages: string[];  // 重複保持で配列
+    displayName: string; // 表示用（最も情報量の多い purchaseUnit を採用）
+    usages: string[];    // 重複保持で配列
     unitPrice: number;
     isNewPurchase: boolean;
   }>();
@@ -68,20 +77,29 @@ export default async function MealManagementPage() {
         const parsed = JSON.parse(plan.recipe.ingredients);
         if (Array.isArray(parsed)) {
           parsed.forEach((i: any) => {
-            const name = i.purchaseUnit || i.name || '不明な材料';
+            const rawName = i.purchaseUnit || i.name || '不明な材料';
+            const baseName = stripParen(rawName) || rawName;
             const usage = i.usageAmount || i.quantity || '';
             const price = i.unitPrice || i.price || 0;
             const isFirst = i.isFirstPurchase === true;
 
-            if (!shoppingListMap.has(name)) {
-              shoppingListMap.set(name, {
+            if (!shoppingListMap.has(baseName)) {
+              shoppingListMap.set(baseName, {
+                displayName: rawName,
                 usages: [],
                 unitPrice: price,
                 isNewPurchase: false
               });
             }
-            const item = shoppingListMap.get(name)!;
-            if (usage) item.usages.push(usage);
+            const item = shoppingListMap.get(baseName)!;
+            // 表示名は括弧情報を含む方（長い方）を優先
+            if (rawName.length > item.displayName.length) {
+              item.displayName = rawName;
+            }
+            // 「適量」は数量加算の邪魔になるので、他に数量があれば省く
+            if (usage && !(usage.trim() === '適量' && item.usages.length > 0)) {
+              item.usages.push(usage);
+            }
             if (isFirst) item.isNewPurchase = true;
             if (price > 0 && item.unitPrice === 0) item.unitPrice = price;
           });
@@ -93,10 +111,10 @@ export default async function MealManagementPage() {
   });
 
   let totalCost = 0;
-  const shoppingList = Array.from(shoppingListMap.entries()).map(([name, data]) => {
+  const shoppingList = Array.from(shoppingListMap.entries()).map(([, data]) => {
     // 各日の使用量を合算
     const parsedUsages = data.usages.map(u => parseQuantity(u)).filter((p): p is { value: number; unit: string } => p !== null);
-    const packCap = parsePackCapacity(name);
+    const packCap = parsePackCapacity(data.displayName);
 
     let totalValue = 0;
     let summable = false;
@@ -123,7 +141,7 @@ export default async function MealManagementPage() {
     totalCost += finalPrice;
 
     return {
-      name,
+      name: data.displayName,
       quantity: displayUsage,
       totalPrice: finalPrice,
       packsNeeded,
@@ -168,8 +186,8 @@ export default async function MealManagementPage() {
         return parsed.map((i: any) => {
           const name = i.purchaseUnit || i.name || '不明';
           const usage = i.usageAmount || i.quantity || '';
-          // 販売単位表記から余計な (xxx) を取り除いて基本名のみに
-          const baseName = name.replace(/\s*[\(（][^)）]*[\)）]\s*/g, '').trim() || name;
+          // 販売単位表記から余計な (xxx) を取り除いて基本名のみに（ネスト括弧対応）
+          const baseName = stripParen(name) || name;
           return usage ? `${baseName} ${usage}` : baseName;
         }).join('、');
       }

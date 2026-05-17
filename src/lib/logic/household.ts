@@ -265,7 +265,12 @@ ${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達
           return masters.find(m => m.name === name)
               || masters.find(m => m.name.includes(name) || name.includes(m.name));
         };
-        const stripParen = (s: string) => (s || '').replace(/\s*[(（][^)）]*[)）]\s*/g, '').trim();
+        // ネストした括弧（例: "枝豆(1袋(250g))"）にも対応するため、最初の `(` の位置で切る方式。
+        const stripParen = (s: string) => {
+          if (!s) return '';
+          const idx = s.search(/[(（]/);
+          return (idx >= 0 ? s.substring(0, idx) : s).trim();
+        };
         const inventoryNames = new Set(inventory.map(i => i.name));
 
         for (const mission of (parsedData.weeklyBatchMissions || [])) {
