@@ -69,6 +69,9 @@ export const HouseholdLogic = {
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
       ],
       generationConfig: {
+        // Vercel 60秒上限内に収めるため思考レベルを抑制（デフォルトhighは応答に~50秒かかる）
+        // legacy SDK v0.24.1 に型未定義のためキャストで通過させる（REST API側は受理する）
+        ...({ thinkingConfig: { thinkingLevel: "low" } } as any),
         responseMimeType: "application/json",
         responseSchema: {
           type: SchemaType.OBJECT,
