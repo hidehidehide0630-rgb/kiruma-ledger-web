@@ -180,10 +180,34 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
                 <h4 className="text-sm font-black text-indigo-600 uppercase tracking-widest italic flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Side: {parsedName.side}
                 </h4>
-                <div className="space-y-4 pl-4 border-l-2 border-indigo-100 text-gray-600 font-medium leading-relaxed">
-                   {parsedInstructions.side.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => (
-                     <div key={i}>{line}</div>
-                   ))}
+                <div className="space-y-6 pl-6 border-l-2 border-indigo-100 relative">
+                  {parsedInstructions.side.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => {
+                    const stepMatch = line.match(/^([0-9]+)\.\s*(.*)/);
+                    const isStep = !!stepMatch;
+                    const isVitalityBenefit = i < 2 && !isStep;
+
+                    if (isStep) {
+                      const stepNum = stepMatch[1];
+                      const content = stepMatch[2];
+                      return (
+                        <div key={i} className="relative group">
+                          <div className="absolute -left-[31px] top-0.5 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full flex items-center justify-center shadow-sm group-hover:scale-125 transition-transform">
+                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">Step {stepNum}</span>
+                            <p className="text-gray-700 font-bold leading-relaxed">{content}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={i} className={`text-gray-600 font-medium leading-relaxed ${isVitalityBenefit ? 'text-indigo-600 font-black italic text-sm bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50 shadow-sm mb-4' : ''}`}>
+                        {line}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -194,10 +218,34 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDet
                 <h4 className="text-sm font-black text-gray-600 uppercase tracking-widest italic flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Soup: {parsedName.soup}
                 </h4>
-                <div className="space-y-4 pl-4 border-l-2 border-gray-100 text-gray-600 font-medium leading-relaxed">
-                   {parsedInstructions.soup.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => (
-                     <div key={i}>{line}</div>
-                   ))}
+                <div className="space-y-6 pl-6 border-l-2 border-gray-200 relative">
+                  {parsedInstructions.soup.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => {
+                    const stepMatch = line.match(/^([0-9]+)\.\s*(.*)/);
+                    const isStep = !!stepMatch;
+                    const isVitalityBenefit = i < 2 && !isStep;
+
+                    if (isStep) {
+                      const stepNum = stepMatch[1];
+                      const content = stepMatch[2];
+                      return (
+                        <div key={i} className="relative group">
+                          <div className="absolute -left-[31px] top-0.5 w-4 h-4 bg-white border-2 border-gray-400 rounded-full flex items-center justify-center shadow-sm group-hover:scale-125 transition-transform">
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Step {stepNum}</span>
+                            <p className="text-gray-700 font-bold leading-relaxed">{content}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={i} className={`text-gray-600 font-medium leading-relaxed ${isVitalityBenefit ? 'text-gray-600 font-black italic text-sm bg-gray-50/50 p-4 rounded-2xl border border-gray-100/50 shadow-sm mb-4' : ''}`}>
+                        {line}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
