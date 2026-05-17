@@ -13,15 +13,10 @@ export default async function MealManagementPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // 表示範囲を「今週の日曜日」までに設定
-  const weekEnd = new Date(today);
-  const daysUntilSunday = 7 - ((today.getDay() + 6) % 7);
-  weekEnd.setDate(today.getDate() + (daysUntilSunday - 1));
-  weekEnd.setHours(23, 59, 59, 999);
-
+  // 生成APIで今日以降の献立は毎回再構築されるため、未来日全てを表示対象とする
   const mealPlans = await prisma.mealPlan.findMany({
     where: {
-      date: { gte: today, lte: weekEnd }
+      date: { gte: today }
     },
     include: { recipe: true },
     orderBy: { date: 'asc' }
@@ -33,7 +28,7 @@ export default async function MealManagementPage() {
 
   const batchMissions = await prisma.batchMission.findMany({
     where: {
-      date: { gte: today, lte: weekEnd }
+      date: { gte: today }
     },
     orderBy: { date: 'asc' }
   });
