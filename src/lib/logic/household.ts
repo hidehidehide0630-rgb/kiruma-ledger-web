@@ -88,9 +88,19 @@ export const HouseholdLogic = {
                     type: SchemaType.STRING, 
                     description: "副菜の具体的な調理手順。2つ以上のレシピを生成する場合は、それぞれにタイトル（例:【きんぴら】）を付け、全ての料理について必ず『1. 2. 』と番号を振り、詳細な分量と垂直フローを維持せよ。食材の配分（g単位）を明記すること。" 
                   },
-                  ingredients: { 
-                    type: SchemaType.STRING, 
-                    description: "必要な食材リスト。必ず改行で区切ること。" 
+                  ingredients: {
+                    type: SchemaType.ARRAY,
+                    description: "副菜に必要な食材リスト。dailyPlans.ingredientsと同一の構造化形式で出力せよ。",
+                    items: {
+                      type: SchemaType.OBJECT,
+                      properties: {
+                        purchaseUnit: { type: SchemaType.STRING, description: "販売単位。例: 人参(1本), ほうれん草(1束), 乾燥ワカメ(20g袋)" },
+                        usageAmount: { type: SchemaType.STRING, description: "使用量（単位付き）。例: 60g, 1束, 10g" },
+                        unitPrice: { type: SchemaType.INTEGER, description: "販売単位あたりの相場価格（円）。マスター登録品はマスター値、未登録品は実勢相場の推定値。0円は禁止、必ず1円以上を返せ。" },
+                        isFirstPurchase: { type: SchemaType.BOOLEAN, description: "在庫にあるならfalse、購入が必要ならtrue。" }
+                      },
+                      required: ["purchaseUnit", "usageAmount", "unitPrice", "isFirstPurchase"]
+                    }
                   }
                 },
                 required: ["day", "missionName", "instructions", "ingredients"]
@@ -136,7 +146,7 @@ export const HouseholdLogic = {
                       properties: {
                         purchaseUnit: { type: SchemaType.STRING, description: "スーパーの販売単位。マスターデータの名称を優先せよ。例: 豚バラ肉(300gパック)" },
                         usageAmount: { type: SchemaType.STRING, description: "その日の使用量。必ず単位(g, 個, 本など)を具体的に付けること。例: 150g" },
-                        unitPrice: { type: SchemaType.INTEGER, description: "販売単位（パック）あたりの価格。マスターデータを参照せよ。" },
+                        unitPrice: { type: SchemaType.INTEGER, description: "販売単位（パック）あたりの価格。マスター登録品はマスター値、未登録品は実勢相場の推定値。0円は禁止、必ず1円以上を返せ。" },
                         proRatedPrice: { type: SchemaType.INTEGER, description: "その日の使用量に相当する価格。1円単位 for 正確に計算せよ。" },
                         isFirstPurchase: { type: SchemaType.BOOLEAN, description: "今回の買い物リストに載せるべき『購入品（またはその使い回し）』ならtrue。DBの在庫リストにあるものを利用する場合のみfalse。" }
                       },
@@ -207,8 +217,9 @@ ${favoritesPrompt}
    - 7日未満の場合は、その比率に近いバランス（例：4日の場合は肉2:魚2）で構成せよ。
 2. **[作り置きミッション (Batch Cooking)]**:
    - 副菜は毎日作らず、「まとめて作る（Batch Mission）」ロジックで構成せよ。
-   - 副菜の食材は主菜の「余り（端数）」を**優先**して使うこと。ただし副菜にのみ必要な食材（例：ニラ、薬味、葉物野菜など）は、必ず dailyPlans[].ingredients に追加し isFirstPurchase: true で買い物リストに反映させること。「余りのみで完結」を理由に副菜固有の食材を ingredients から欠落させることは厳禁。
-   - **[最重要・買い物リスト整合性]** weeklyBatchMissions の ingredients に列挙する全ての食材は、必ずそのミッションの day（1 または 5）に対応する dailyPlans[].ingredients にも構造化形式（purchaseUnit, usageAmount, unitPrice, proRatedPrice, isFirstPurchase）で重複して追加せよ。weeklyBatchMissions.ingredients は調理レシピ表示用、dailyPlans[].ingredients は買い物リスト集計用と機能を分けるため、両方への記載が必須である。在庫にあるものは isFirstPurchase: false、購入が必要なものは true として正確に分類すること。
+   - 副菜の食材は主菜の「余り（端数）」を**優先**して使うこと。ただし副菜にのみ必要な食材（例：ニラ、人参、ほうれん草、乾燥ワカメ、塩昆布、油、調味料など）は、必ず weeklyBatchMissions[].ingredients に構造化形式（purchaseUnit, usageAmount, unitPrice, isFirstPurchase）で全て列挙せよ。
+   - **[買い物リスト統合]** weeklyBatchMissions.ingredients に列挙した食材は、サーバー側で自動的に買い物リストに統合される。dailyPlans[].ingredients への重複記載は不要である（むしろ二重計上を避けるため記載するな）。
+   - 在庫にあるものは isFirstPurchase: false、購入が必要なものは true として正確に分類すること。
 
 # 調理・購買ロジック
 1. **[成人男性1人前]**: すべてのレシピは成人男性1人が満足できる分量で構成せよ。
@@ -251,28 +262,79 @@ ${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達
           throw new Error("JSONの構造が不正です（dailyPlansが見つかりません）。");
         }
 
-        // 安全網: AIがweeklyBatchMissionsの食材を対応する日のdailyPlans[].ingredientsに
-        // 重複記載し忘れた場合に備え、機械的にマージする（プロンプトでは指示済みだが順守率100%でないため）。
-        // これがないと買い物リストにbatch食材（ニラ・ほうれん草等）が出現しないバグが発生する。
-        const parseBatchLine = (line: string): { name: string; qty: string } | null => {
-          const t = line.trim().replace(/^[・\-*•]\s*/, '');
-          if (!t) return null;
-          const m = t.match(/^(.+?)\s+([\d./]+\s*\S*)$/);
-          if (m) return { name: m[1].trim(), qty: m[2].trim() };
-          return { name: t, qty: '適量' };
-        };
-        const findMaster = (name: string) => {
-          return masters.find(m => m.name === name)
-              || masters.find(m => m.name.includes(name) || name.includes(m.name));
-        };
-        // ネストした括弧（例: "枝豆(1袋(250g))"）にも対応するため、最初の `(` の位置で切る方式。
+        // ============================================================
+        // ハイブリッド処理（master価格上書き + 自動INSERT + 安全網統合）
+        // ============================================================
+        // 設計方針:
+        //   1. AIが返した unitPrice を尊重しつつ、masterに登録があれば
+        //      master.basePrice で上書き（実勢価格を「正解」とする）。
+        //   2. masterに無い食材は、AI推定価格でmasterに自動INSERT。
+        //      → 次回以降は master からヒットし、価格精度が安定する（自動成長）。
+        //   3. weeklyBatchMissions.ingredients を dailyPlans[].ingredients に
+        //      機械的に統合（買い物リストは dailyPlans 側から集計するため）。
+
+        // ネスト括弧対応: 最初の `(` 以降を切り捨て
         const stripParen = (s: string) => {
           if (!s) return '';
           const idx = s.search(/[(（]/);
           return (idx >= 0 ? s.substring(0, idx) : s).trim();
         };
+        // 販売単位文字列から括弧内（例: "(1本)" → "1本"）を抽出
+        const extractUnit = (purchaseUnit: string): string => {
+          const m = (purchaseUnit || '').match(/[(（]([^)）]+)[)）]/);
+          return m ? m[1].trim() : '個';
+        };
+
+        const masterByName = new Map(masters.map(m => [m.name, m]));
         const inventoryNames = new Set(inventory.map(i => i.name));
 
+        // dailyPlans と weeklyBatchMissions の全 ingredients を一度に走査
+        const allIngredientsRefs: any[] = [];
+        for (const plan of parsedData.dailyPlans) {
+          if (Array.isArray(plan.ingredients)) allIngredientsRefs.push(...plan.ingredients);
+        }
+        for (const mission of (parsedData.weeklyBatchMissions || [])) {
+          if (Array.isArray(mission.ingredients)) allIngredientsRefs.push(...mission.ingredients);
+        }
+
+        // ハイブリッド: master優先で価格上書き、未登録は自動INSERT
+        const newlyRegistered = new Set<string>();
+        for (const ing of allIngredientsRefs) {
+          const baseName = stripParen(ing.purchaseUnit || '');
+          if (!baseName) continue;
+
+          const master = masterByName.get(baseName);
+          if (master) {
+            // 既存master: 価格を実勢値で上書き（AI推定より信頼）
+            if (master.basePrice > 0) ing.unitPrice = master.basePrice;
+          } else if (!newlyRegistered.has(baseName)) {
+            // 未登録: AIが返した価格で master に新規登録（自動成長）
+            const aiPrice = typeof ing.unitPrice === 'number' && ing.unitPrice > 0 ? ing.unitPrice : 0;
+            if (aiPrice > 0) {
+              newlyRegistered.add(baseName);
+              try {
+                await prisma.ingredientMaster.upsert({
+                  where: { name: baseName },
+                  update: {}, // 既存なら何もしない（並行実行時の保険）
+                  create: {
+                    name: baseName,
+                    category: 'auto',
+                    seasonalMonths: [],
+                    vitalityBenefit: null,
+                    basePrice: aiPrice,
+                    unit: extractUnit(ing.purchaseUnit || ''),
+                    isVitality: false
+                  }
+                });
+              } catch (e) {
+                console.error(`Master auto-register failed for "${baseName}":`, e);
+              }
+            }
+          }
+        }
+
+        // 安全網: weeklyBatchMissions.ingredients を dailyPlans[].ingredients に統合
+        // （買い物リスト集計は dailyPlans 側で行うため、構造を寄せる）
         for (const mission of (parsedData.weeklyBatchMissions || [])) {
           const dayIdx = (mission.day || 1) - 1;
           if (dayIdx < 0 || dayIdx >= parsedData.dailyPlans.length) continue;
@@ -283,22 +345,17 @@ ${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達
             plan.ingredients.map((i: any) => stripParen(i.purchaseUnit || ''))
           );
 
-          const lines = (mission.ingredients || '').split('\n');
-          for (const line of lines) {
-            const parsed = parseBatchLine(line);
-            if (!parsed) continue;
-            if (existingBaseNames.has(parsed.name)) continue;
-            const master = findMaster(parsed.name);
-            const inInventory = inventoryNames.has(parsed.name)
-                             || (master ? inventoryNames.has(master.name) : false);
+          for (const ing of (mission.ingredients || [])) {
+            const baseName = stripParen(ing.purchaseUnit || '');
+            if (!baseName || existingBaseNames.has(baseName)) continue;
+            // 在庫判定の補強（AIがisFirstPurchaseを取り違えるケース対策）
+            const inInventory = inventoryNames.has(baseName);
             plan.ingredients.push({
-              purchaseUnit: master ? `${master.name}(${master.unit})` : parsed.name,
-              usageAmount: parsed.qty,
-              unitPrice: master?.basePrice || 0,
-              proRatedPrice: 0,
-              isFirstPurchase: !inInventory
+              ...ing,
+              proRatedPrice: ing.proRatedPrice || 0,
+              isFirstPurchase: inInventory ? false : (ing.isFirstPurchase !== false)
             });
-            existingBaseNames.add(parsed.name);
+            existingBaseNames.add(baseName);
           }
         }
 
@@ -318,7 +375,11 @@ ${startDate.toLocaleDateString('ja-JP')}から${days}日間分の献立と調達
               }
             };
           }),
-          weeklyBatchMissions: parsedData.weeklyBatchMissions
+          weeklyBatchMissions: (parsedData.weeklyBatchMissions || []).map((mission: any) => ({
+            ...mission,
+            // BatchMission.ingredients は String 型のため JSON 文字列化して保存
+            ingredients: JSON.stringify(mission.ingredients || [])
+          }))
         };
       } catch (e: any) {
         lastError = e;

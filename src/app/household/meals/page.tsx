@@ -33,8 +33,6 @@ export default async function MealManagementPage() {
     orderBy: { date: 'asc' }
   });
 
-  const ingredientMasters = await prisma.ingredientMaster.findMany();
-
   // 数量文字列から「値+単位」を抽出（例: "150g" → {value:150, unit:"g"}）
   const parseQuantity = (str: string): { value: number; unit: string } | null => {
     if (!str) return null;
@@ -55,9 +53,9 @@ export default async function MealManagementPage() {
   };
 
   // 買い物リストと合計金額の集計
-  // 買い物リストはdailyPlans[].ingredientsのみから集計する。
-  // batchMission.ingredientsはテキスト形式のため、AIには副菜固有食材を必ず
-  // dailyPlans[].ingredients側に入れるようプロンプトで指示している。
+  // 買い物リストは dailyPlans[].ingredients のみから集計する（単一の真実源）。
+  // batchMission の食材はサーバー側（HouseholdLogic.generateMenu内）で
+  // dailyPlans[].ingredients に統合済みのため、ここでの二次集計は不要。
   // 集計キーは「基本名（最初の括弧以降を切り捨て）」で正規化し、同一食材を1件にまとめる。
   // ネストした括弧（例: "枝豆(1袋(250g))"）にも対応するため、最初の `(` の位置で切る方式を採用。
   const stripParen = (s: string) => {
@@ -109,49 +107,6 @@ export default async function MealManagementPage() {
       } catch (e) {
         // Parse error
       }
-    }
-  });
-
-  // 第二の集計: batchMissions.ingredients テキストを直接パースしてマージ。
-  // AIがdailyPlans側に重複記載し忘れた場合の取りこぼし対策（サーバー側安全網のフォールバック）。
-  // dailyPlans側に既に存在する食材はスキップして二重計上を防ぐ。
-  const inventoryNameSet = new Set(inventory.map(i => i.name));
-
-  const parseBatchLine = (line: string): { name: string; qty: string } | null => {
-    const t = line.trim().replace(/^[・\-*•]\s*/, '');
-    if (!t) return null;
-    // 半角/全角スペースで「名前」と「数量+単位」を分割
-    const m = t.match(/^(.+?)[ 　\t]+([\d./]+\s*\S*)$/);
-    if (m) return { name: stripParen(m[1].trim()) || m[1].trim(), qty: m[2].trim() };
-    return null; // 数量がない調味料行（"ごま油、塩、醤油"等）はスキップ
-  };
-
-  const findMaster = (name: string) => {
-    return ingredientMasters.find(m => m.name === name)
-        || ingredientMasters.find(m => m.name.length >= 2 && (m.name.includes(name) || name.includes(m.name)));
-  };
-
-  batchMissions.forEach(mission => {
-    if (!mission.ingredients) return;
-    const lines = mission.ingredients.split(/[\n、,]/);
-    for (const line of lines) {
-      const parsed = parseBatchLine(line);
-      if (!parsed) continue;
-      const baseName = parsed.name;
-      // dailyPlans側で既に登録済みならスキップ（二重計上防止）
-      if (shoppingListMap.has(baseName)) continue;
-
-      const master = findMaster(baseName);
-      const displayName = master ? `${master.name}(${master.unit})` : baseName;
-      const isInInventory = inventoryNameSet.has(baseName)
-                         || (master ? inventoryNameSet.has(master.name) : false);
-
-      shoppingListMap.set(baseName, {
-        displayName,
-        usages: [parsed.qty],
-        unitPrice: master?.basePrice || 0,
-        isNewPurchase: !isInInventory
-      });
     }
   });
 
@@ -393,12 +348,28 @@ export default async function MealManagementPage() {
                   )}
                   
                   <div className="space-y-3">
-                    {mission.ingredients?.split('\n').map((item, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-200"></span>
-                        <span className="text-sm font-bold text-gray-600">{item}</span>
-                      </div>
-                    ))}
+                    {(() => {
+                      // 新フォーマット（構造化JSON）優先、失敗時は旧フォーマット（改行区切り文字列）にフォールバック
+                      try {
+                        const items = JSON.parse(mission.ingredients || '[]');
+                        if (Array.isArray(items) && items.length > 0 && typeof items[0] === 'object') {
+                          return items.map((it: any, i: number) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-200"></span>
+                              <span className="text-sm font-bold text-gray-600">
+                                {it.purchaseUnit} {it.usageAmount}
+                              </span>
+                            </div>
+                          ));
+                        }
+                      } catch (e) { /* fallthrough */ }
+                      return mission.ingredients?.split('\n').map((item, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-200"></span>
+                          <span className="text-sm font-bold text-gray-600">{item}</span>
+                        </div>
+                      ));
+                    })()}
                   </div>
 
                   <div className="mt-6 pt-6 border-t border-indigo-50">
