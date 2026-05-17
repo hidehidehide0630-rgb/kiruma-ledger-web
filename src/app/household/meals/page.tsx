@@ -33,6 +33,8 @@ export default async function MealManagementPage() {
     orderBy: { date: 'asc' }
   });
 
+  const ingredientMasters = await prisma.ingredientMaster.findMany();
+
   // 数量文字列から「値+単位」を抽出（例: "150g" → {value:150, unit:"g"}）
   const parseQuantity = (str: string): { value: number; unit: string } | null => {
     if (!str) return null;
@@ -107,6 +109,49 @@ export default async function MealManagementPage() {
       } catch (e) {
         // Parse error
       }
+    }
+  });
+
+  // 第二の集計: batchMissions.ingredients テキストを直接パースしてマージ。
+  // AIがdailyPlans側に重複記載し忘れた場合の取りこぼし対策（サーバー側安全網のフォールバック）。
+  // dailyPlans側に既に存在する食材はスキップして二重計上を防ぐ。
+  const inventoryNameSet = new Set(inventory.map(i => i.name));
+
+  const parseBatchLine = (line: string): { name: string; qty: string } | null => {
+    const t = line.trim().replace(/^[・\-*•]\s*/, '');
+    if (!t) return null;
+    // 半角/全角スペースで「名前」と「数量+単位」を分割
+    const m = t.match(/^(.+?)[ 　\t]+([\d./]+\s*\S*)$/);
+    if (m) return { name: stripParen(m[1].trim()) || m[1].trim(), qty: m[2].trim() };
+    return null; // 数量がない調味料行（"ごま油、塩、醤油"等）はスキップ
+  };
+
+  const findMaster = (name: string) => {
+    return ingredientMasters.find(m => m.name === name)
+        || ingredientMasters.find(m => m.name.length >= 2 && (m.name.includes(name) || name.includes(m.name)));
+  };
+
+  batchMissions.forEach(mission => {
+    if (!mission.ingredients) return;
+    const lines = mission.ingredients.split(/[\n、,]/);
+    for (const line of lines) {
+      const parsed = parseBatchLine(line);
+      if (!parsed) continue;
+      const baseName = parsed.name;
+      // dailyPlans側で既に登録済みならスキップ（二重計上防止）
+      if (shoppingListMap.has(baseName)) continue;
+
+      const master = findMaster(baseName);
+      const displayName = master ? `${master.name}(${master.unit})` : baseName;
+      const isInInventory = inventoryNameSet.has(baseName)
+                         || (master ? inventoryNameSet.has(master.name) : false);
+
+      shoppingListMap.set(baseName, {
+        displayName,
+        usages: [parsed.qty],
+        unitPrice: master?.basePrice || 0,
+        isNewPurchase: !isInInventory
+      });
     }
   });
 
