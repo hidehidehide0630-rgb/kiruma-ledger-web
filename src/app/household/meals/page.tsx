@@ -40,6 +40,10 @@ export default async function MealManagementPage() {
     isNewPurchase: boolean 
   }>();
 
+  // 買い物リストはdailyPlans[].ingredientsのみから集計する。
+  // batchMission.ingredientsはテキスト形式のため、AIには副菜固有食材を必ず
+  // dailyPlans[].ingredients側に入れるようプロンプトで指示している。
+  // batchMission側を集計すると名前フォーマット差異により二重計上が発生する。
   mealPlans.forEach(plan => {
     if (plan.recipe?.ingredients) {
       try {
@@ -68,31 +72,6 @@ export default async function MealManagementPage() {
         // Parse error
       }
     }
-  });
-
-  // 作り置きミッションの食材も買い物リストに統合（テキスト形式のため価格は0扱い）
-  batchMissions.forEach(mission => {
-    if (!mission.ingredients) return;
-    mission.ingredients.split('\n').forEach(line => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      // "ニラ 1束" / "ほうれん草: 200g" 等から名前と数量を抽出
-      const match = trimmed.match(/^([^\d:：(（]+?)\s*[:：]?\s*(.*)$/);
-      const name = (match ? match[1] : trimmed).trim();
-      const usage = (match ? match[2] : '').trim();
-      if (!name) return;
-
-      if (!shoppingListMap.has(name)) {
-        shoppingListMap.set(name, {
-          usageAmount: new Set(),
-          unitPrice: 0,
-          isNewPurchase: true // バッチ食材は新規購入扱い
-        });
-      }
-      const item = shoppingListMap.get(name)!;
-      if (usage) item.usageAmount.add(usage);
-      item.isNewPurchase = true;
-    });
   });
 
   let totalCost = 0;
