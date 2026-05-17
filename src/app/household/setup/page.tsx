@@ -4,6 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SeasonalIngredientList from '@/components/meals/SeasonalIngredientList';
 
+interface Recipe {
+  id: string;
+  name: string;
+  ingredients: string;
+  estimatedPrice: number;
+}
+
 interface CategoryRec {
   categoryId: number;
   name: string;
@@ -28,6 +35,8 @@ export default function HouseholdSetupPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingRec, setIsLoadingRec] = useState(true);
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+  const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
 
   // 予算推薦データの取得
   useEffect(() => {
@@ -61,6 +70,25 @@ export default function HouseholdSetupPage() {
       setBudget(totalDaily * days);
     }
   }, [days, recs]);
+
+  // お気に入りレシピの取得
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      setIsLoadingFavorites(true);
+      try {
+        const response = await fetch('/api/household/recipes/favorites');
+        if (response.ok) {
+          const data = await response.json();
+          setFavorites(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch favorite recipes:', error);
+      } finally {
+        setIsLoadingFavorites(false);
+      }
+    };
+    fetchFavorites();
+  }, []);
 
   // 在庫読み込みは inventoryText のみ更新する。days / budget には絶対に副作用を与えない。
   const handleLoadInventory = async () => {
@@ -208,18 +236,46 @@ export default function HouseholdSetupPage() {
           <p className="text-[10px] text-gray-400">※入力された食材は優先的に献立に組み込まれ、買い物予算からは除外されます。</p>
         </div>
 
-        <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
-          <input
-            type="checkbox"
-            id="includeFavorites"
-            checked={includeFavorites}
-            onChange={(e) => setIncludeFavorites(e.target.checked)}
-            className="w-5 h-5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
-          />
-          <label htmlFor="includeFavorites" className="text-sm font-bold text-amber-900 cursor-pointer">
-            お気に入りレシピを優先的に再利用する
-            <span className="block text-[10px] text-amber-700 font-medium mt-0.5">※過去に★をつけた献立から、予算と栄養バランスに合うものをAIが選びます。</span>
-          </label>
+        <div className="flex flex-col gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="includeFavorites"
+              checked={includeFavorites}
+              onChange={(e) => setIncludeFavorites(e.target.checked)}
+              className="w-5 h-5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
+            />
+            <label htmlFor="includeFavorites" className="text-sm font-bold text-amber-900 cursor-pointer">
+              お気に入りレシピを優先的に再利用する
+              <span className="block text-[10px] text-amber-700 font-medium mt-0.5">※過去に★をつけた献立から、予算と栄養バランスに合うものをAIが選びます。</span>
+            </label>
+          </div>
+
+          {includeFavorites && (
+            <div className="mt-2 border-t border-amber-200/50 pt-3">
+              <h4 className="text-xs font-bold text-amber-800 mb-3 flex items-center gap-2">
+                <span>⭐ 現在登録されているお気に入り</span>
+                <span className="text-[10px] bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-black">{favorites.length}件</span>
+              </h4>
+              {isLoadingFavorites ? (
+                <p className="text-xs text-amber-700/60 animate-pulse">読み込み中...</p>
+              ) : favorites.length === 0 ? (
+                <p className="text-xs text-amber-700/60 italic bg-amber-100/50 p-3 rounded-lg border border-amber-100">お気に入りに登録されたレシピはまだありません。日々の献立画面から「★」をタップして登録できます。</p>
+              ) : (
+                <div className="flex overflow-x-auto pb-3 gap-3 snap-x scrollbar-thin scrollbar-thumb-pink-200 scrollbar-track-transparent">
+                  {favorites.map((recipe) => (
+                    <div key={recipe.id} className="min-w-[160px] max-w-[160px] snap-start bg-white border border-pink-100/60 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-pink-300 transition-all group flex flex-col justify-between">
+                      <div>
+                        <p className="font-bold text-xs text-gray-800 line-clamp-2 group-hover:text-pink-600 transition-colors">{recipe.name}</p>
+                        <p className="text-[10px] text-gray-400 mt-2 line-clamp-2">{recipe.ingredients}</p>
+                      </div>
+                      <p className="text-[11px] font-black text-pink-500 mt-2 text-right">¥{recipe.estimatedPrice.toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="pt-4">
