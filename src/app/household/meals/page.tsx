@@ -33,17 +33,35 @@ export default async function MealManagementPage() {
     orderBy: { date: 'asc' }
   });
 
-  // 買い物リストと合計金額の集計
-  const shoppingListMap = new Map<string, { 
-    usageAmount: Set<string>, 
-    unitPrice: number, 
-    isNewPurchase: boolean 
-  }>();
+  // 数量文字列から「値+単位」を抽出（例: "150g" → {value:150, unit:"g"}）
+  const parseQuantity = (str: string): { value: number; unit: string } | null => {
+    if (!str) return null;
+    const m = str.trim().match(/^([\d.]+)\s*(.*)$/);
+    if (!m) return null;
+    const value = parseFloat(m[1]);
+    if (isNaN(value)) return null;
+    return { value, unit: m[2].trim().toLowerCase().replace(/パック|袋/g, '') };
+  };
 
+  // purchaseUnit から販売単位の容量を抽出（例: "鶏むね肉(300g)" → {value:300, unit:"g"}）
+  const parsePackCapacity = (purchaseUnit: string): { value: number; unit: string } | null => {
+    const m = purchaseUnit.match(/[(（]([\d.]+)\s*([^)）]+)[)）]/);
+    if (!m) return null;
+    const value = parseFloat(m[1]);
+    if (isNaN(value)) return null;
+    return { value, unit: m[2].trim().toLowerCase().replace(/パック|袋/g, '') };
+  };
+
+  // 買い物リストと合計金額の集計
   // 買い物リストはdailyPlans[].ingredientsのみから集計する。
   // batchMission.ingredientsはテキスト形式のため、AIには副菜固有食材を必ず
   // dailyPlans[].ingredients側に入れるようプロンプトで指示している。
-  // batchMission側を集計すると名前フォーマット差異により二重計上が発生する。
+  const shoppingListMap = new Map<string, {
+    usages: string[];  // 重複保持で配列
+    unitPrice: number;
+    isNewPurchase: boolean;
+  }>();
+
   mealPlans.forEach(plan => {
     if (plan.recipe?.ingredients) {
       try {
@@ -57,13 +75,13 @@ export default async function MealManagementPage() {
 
             if (!shoppingListMap.has(name)) {
               shoppingListMap.set(name, {
-                usageAmount: new Set(),
+                usages: [],
                 unitPrice: price,
                 isNewPurchase: false
               });
             }
             const item = shoppingListMap.get(name)!;
-            if (usage) item.usageAmount.add(usage);
+            if (usage) item.usages.push(usage);
             if (isFirst) item.isNewPurchase = true;
             if (price > 0 && item.unitPrice === 0) item.unitPrice = price;
           });
@@ -76,13 +94,42 @@ export default async function MealManagementPage() {
 
   let totalCost = 0;
   const shoppingList = Array.from(shoppingListMap.entries()).map(([name, data]) => {
-    const finalPrice = data.isNewPurchase ? data.unitPrice : 0;
+    // 各日の使用量を合算
+    const parsedUsages = data.usages.map(u => parseQuantity(u)).filter((p): p is { value: number; unit: string } => p !== null);
+    const packCap = parsePackCapacity(name);
+
+    let totalValue = 0;
+    let summable = false;
+    let displayUsage = data.usages.join(' + ');
+
+    // 単位が揃っていれば合算可能
+    if (parsedUsages.length > 0 && parsedUsages.every(p => p.unit === parsedUsages[0].unit)) {
+      summable = true;
+      totalValue = parsedUsages.reduce((sum, p) => sum + p.value, 0);
+      if (data.usages.length > 1) {
+        displayUsage = `${data.usages.join(' + ')} (合計 ${totalValue}${parsedUsages[0].unit})`;
+      }
+    }
+
+    // 販売単位を超えていれば追加パック購入が必要
+    let packsNeeded = 1;
+    let overflow = false;
+    if (summable && packCap && packCap.unit === parsedUsages[0].unit && totalValue > packCap.value) {
+      packsNeeded = Math.ceil(totalValue / packCap.value);
+      overflow = true;
+    }
+
+    const finalPrice = data.isNewPurchase ? data.unitPrice * packsNeeded : 0;
     totalCost += finalPrice;
-    
+
     return {
       name,
-      quantity: Array.from(data.usageAmount).join(' / '),
+      quantity: displayUsage,
       totalPrice: finalPrice,
+      packsNeeded,
+      overflow,
+      packCapacity: packCap ? `${packCap.value}${packCap.unit}` : null,
+      totalValueDisplay: summable ? `${totalValue}${parsedUsages[0].unit}` : null,
       isFromInventory: !data.isNewPurchase
     };
   });
@@ -117,7 +164,14 @@ export default async function MealManagementPage() {
     try {
       const parsed = JSON.parse(rawIngredients);
       if (Array.isArray(parsed)) {
-        return parsed.map((i: any) => i.purchaseUnit || i.name).join('、');
+        // 「鶏むね肉(300g) 使用150g」のように販売単位＋実使用量を表示
+        return parsed.map((i: any) => {
+          const name = i.purchaseUnit || i.name || '不明';
+          const usage = i.usageAmount || i.quantity || '';
+          // 販売単位表記から余計な (xxx) を取り除いて基本名のみに
+          const baseName = name.replace(/\s*[\(（][^)）]*[\)）]\s*/g, '').trim() || name;
+          return usage ? `${baseName} ${usage}` : baseName;
+        }).join('、');
       }
       return rawIngredients;
     } catch (e) {
@@ -173,17 +227,27 @@ export default async function MealManagementPage() {
             </div>
             <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto pr-2">
               {shoppingList.map((item, idx) => (
-                <div key={idx} className="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex flex-col gap-1 hover:border-pink-300 transition-colors min-w-[120px]">
+                <div key={idx} className={`bg-white border px-4 py-2 rounded-xl shadow-sm flex flex-col gap-1 transition-colors min-w-[140px] ${item.overflow ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-pink-300'}`}>
                   <div className="flex justify-between items-center gap-4">
-                    <span className="font-bold text-gray-700 text-xs">{item.name}</span>
+                    <span className="font-bold text-gray-700 text-xs">
+                      {item.name}
+                      {item.packsNeeded > 1 && (
+                        <span className="ml-1 text-red-600 font-black">× {item.packsNeeded}パック</span>
+                      )}
+                    </span>
                     <span className="text-[11px] font-black text-pink-600 italic">
                       {item.isFromInventory ? '在庫利用' : `¥${item.totalPrice.toLocaleString()}`}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[9px] font-black text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">
                       使用: {item.quantity}
                     </span>
+                    {item.overflow && (
+                      <span className="text-[9px] font-black text-red-600 bg-red-100 px-2 py-0.5 rounded-md uppercase tracking-tighter">
+                        ⚠ 販売単位{item.packCapacity}超過（総量{item.totalValueDisplay}）
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
