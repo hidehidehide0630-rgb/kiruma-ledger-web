@@ -42,12 +42,8 @@ export async function POST(req: NextRequest) {
     // daysが未指定の場合は、今週の日曜日までの日数を計算
     const calculatedDays = days || (7 - ((today.getDay() + 6) % 7));
 
-    // 2. 既存の（未実施の）献立を一旦クリア（今日以降をすべて削除して整合性を保つ）
-    await prisma.mealPlan.deleteMany({
-        where: {
-            date: { gte: today }
-        }
-    });
+    // 2. 既存の献立をすべてクリア（次回生成時に過去分も含めすべて再構築するため）
+    await prisma.mealPlan.deleteMany({});
 
     // 2. 献立生成ロジックの実行
     const { dailyPlans, weeklyBatchMissions } = await HouseholdLogic.generateMenu({
@@ -59,12 +55,8 @@ export async function POST(req: NextRequest) {
       selectedFavorites: selectedFavorites || []
     });
 
-    // 3. データベースへの保存（ミッションのクリア）
-    await prisma.batchMission.deleteMany({
-        where: {
-            date: { gte: today }
-        }
-    });
+    // 3. データベースへの保存（既存ミッションをすべてクリア）
+    await prisma.batchMission.deleteMany({});
 
     for (const item of dailyPlans) {
         try {

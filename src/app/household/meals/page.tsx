@@ -13,11 +13,8 @@ export default async function MealManagementPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // 生成APIで今日以降の献立は毎回再構築されるため、未来日全てを表示対象とする
+  // 次回生成時まで過去の献立もUI上に残すため、すべての献立を取得
   const mealPlans = await prisma.mealPlan.findMany({
-    where: {
-      date: { gte: today }
-    },
     include: { recipe: true },
     orderBy: { date: 'asc' }
   });
@@ -26,10 +23,8 @@ export default async function MealManagementPage() {
     orderBy: { updatedAt: 'desc' }
   });
 
+  // 作り置きミッションも次回生成時まで過去分を残すため、すべて取得
   const batchMissions = await prisma.batchMission.findMany({
-    where: {
-      date: { gte: today }
-    },
     orderBy: { date: 'asc' }
   });
 
@@ -361,18 +356,24 @@ export default async function MealManagementPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {batchMissions.map((mission) => {
               const menuNames = extractMenuNames(mission.instructions);
+              const isPast = mission.date < today;
               return (
-              <div key={mission.id} className="bg-white p-6 rounded-[2rem] border border-indigo-50 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div key={mission.id} className={`bg-white p-6 rounded-[2rem] border border-indigo-50 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group ${isPast ? 'opacity-60 bg-gray-50/50' : ''}`}>
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                   <span className="text-6xl italic font-black">Day {mission.day}</span>
                 </div>
                 <div className="relative z-10">
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="px-3 py-1 bg-indigo-600 text-white text-[9px] font-black rounded-full uppercase italic">
+                    <span className={`px-3 py-1 text-white text-[9px] font-black rounded-full uppercase italic ${isPast ? 'bg-gray-400' : 'bg-indigo-600'}`}>
                       Mission Day {mission.day}
                     </span>
-                    <span className="text-sm font-black text-gray-900 tracking-tight">
+                    <span className="text-sm font-black text-gray-900 tracking-tight flex items-center gap-2">
                       {mission.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
+                      {isPast && (
+                        <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">
+                          目安日経過
+                        </span>
+                      )}
                     </span>
                   </div>
 
@@ -430,59 +431,67 @@ export default async function MealManagementPage() {
       {/* 今後の献立リスト */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {mealPlans.length > 0 ? (
-          mealPlans.map((plan) => (
-            <div key={plan.id} className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-gray-100 hover:border-pink-200 transition-all group relative overflow-hidden flex flex-col">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-pink-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50"></div>
-              
-              <div className="relative z-10 flex flex-col h-full">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-[10px] font-black uppercase text-pink-500 tracking-widest italic">
-                        {plan.date.toLocaleDateString('ja-JP', { weekday: 'long' })}
+          mealPlans.map((plan) => {
+            const isPast = plan.date < today;
+            return (
+              <div key={plan.id} className={`bg-white rounded-[2.5rem] p-8 shadow-xl border transition-all group relative overflow-hidden flex flex-col ${isPast ? 'border-gray-200 bg-gray-50/50 opacity-60' : 'border-gray-100 hover:border-pink-200'}`}>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50"></div>
+                
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className={`text-[10px] font-black uppercase tracking-widest italic ${isPast ? 'text-gray-400' : 'text-pink-500'}`}>
+                          {plan.date.toLocaleDateString('ja-JP', { weekday: 'long' })}
+                        </p>
+                        {isPast && (
+                          <span className="text-[9px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">
+                            Passed
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-2xl font-black text-gray-900 tracking-tighter">
+                        {plan.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
                       </p>
                     </div>
-                    <p className="text-2xl font-black text-gray-900 tracking-tighter">
-                      {plan.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2 items-center">
-                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-gray-100 group-hover:rotate-12 transition-transform">
-                      🍱
+                    <div className="flex flex-col gap-2 items-center">
+                      <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-gray-100 group-hover:rotate-12 transition-transform">
+                        🍱
+                      </div>
+                      {plan.recipe && (
+                        <FavoriteButton 
+                          recipeId={plan.recipe.id} 
+                          initialIsFavorite={plan.recipe.isFavorite} 
+                        />
+                      )}
                     </div>
-                    {plan.recipe && (
-                      <FavoriteButton 
-                        recipeId={plan.recipe.id} 
-                        initialIsFavorite={plan.recipe.isFavorite} 
-                      />
-                    )}
                   </div>
-                </div>
 
-                <div className="mb-6 flex-grow">
-                  {renderMenu(plan.recipe?.name || '無題のレシピ')}
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest italic">この日の食費 (按分)</span>
-                    <span className="text-gray-900 font-black text-lg italic tracking-tighter">¥{(plan.recipe?.estimatedPrice || 0).toLocaleString()}</span>
+                  <div className="mb-6 flex-grow">
+                    {renderMenu(plan.recipe?.name || '無題のレシピ')}
                   </div>
-                  
-                  <div className="pt-4 border-t border-gray-50">
-                    <p className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-2 italic">Ingredients Used</p>
-                    <p className="text-xs font-bold text-gray-500 leading-relaxed line-clamp-2">
-                      {formatIngredients(plan.recipe?.ingredients || '')}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="mt-6">
-                  {plan.recipe && <RecipeViewButton recipe={plan.recipe} />}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest italic">この日の食費 (按分)</span>
+                      <span className="text-gray-900 font-black text-lg italic tracking-tighter">¥{(plan.recipe?.estimatedPrice || 0).toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-gray-50">
+                      <p className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-2 italic">Ingredients Used</p>
+                      <p className="text-xs font-bold text-gray-500 leading-relaxed line-clamp-2">
+                        {formatIngredients(plan.recipe?.ingredients || '')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    {plan.recipe && <RecipeViewButton recipe={plan.recipe} />}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="col-span-full bg-white rounded-[3rem] p-20 text-center border-2 border-dashed border-gray-100">
             <div className="text-6xl mb-6 grayscale opacity-20">🍳</div>
